@@ -14,19 +14,6 @@
       <view class="scene-bg-gradient" :class="{ 'scene-bg-gradient--hidden': sceneImageUrl && !sceneImageError }" />
     </view>
 
-    <!-- Layer 1.5: 心情叠加层 (mood overlay) -->
-    <view
-      v-if="moodOverlayUrl && !moodOverlayError"
-      class="mood-overlay-layer"
-    >
-      <image
-        :src="moodOverlayUrl"
-        mode="aspectFill"
-        class="mood-overlay-img"
-        @error="onMoodOverlayError"
-      />
-    </view>
-
     <!-- Layer 2: 粒子层 -->
     <view class="particle-layer">
       <view
@@ -53,7 +40,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
-/** P50: 时间感知 — 根据当前小时切换场景 */
+/** P63: 简化时间感知 — 白天/夜晚两种场景 */
 const currentHour = ref(new Date().getHours())
 let hourTimer: ReturnType<typeof setInterval> | null = null
 
@@ -69,22 +56,20 @@ onUnmounted(() => {
 
 const sceneTimeClass = computed(() => {
   const h = currentHour.value
-  if (h >= 6 && h < 17) return 'scene--day'
-  if (h >= 17 && h < 19) return 'scene--sunset'
+  if (h >= 6 && h < 18) return 'scene--day'
   return 'scene--night'
 })
 
-/** P54: 当前时间 Key — day/sunset/night，不包含 CSS 前缀 */
+/** P63: 当前时间 Key — day/night */
 const sceneTimeKey = computed(() => {
   const h = currentHour.value
-  if (h >= 6 && h < 17) return 'day'
-  if (h >= 17 && h < 19) return 'sunset'
+  if (h >= 6 && h < 18) return 'day'
   return 'night'
 })
 
 /** P54: 场景图片 URL（CDN 加载，不占小程序包体积） */
 const SCENE_CDN = 'https://stage-api.lanyunke.com/uploads/scenes'
-const SCENE_V = '20260626140000' // 缓存刷新版本号 (P60: 刷新CDN缓存)
+const SCENE_V = '20260629180000' // P63: 火龙犬白天背景更新 + 场景简化
 
 const sceneImageUrl = computed(() => {
   const sid = props.speciesId
@@ -102,26 +87,9 @@ function onSceneImageError() {
   sceneImageError.value = true
 }
 
-/** P54: 心情叠加层 URL */
-const moodOverlayUrl = computed(() => {
-  const sid = props.speciesId
-  if (!sid) return ''
-  const m = props.mood ?? 50
-  if (m >= 80) return `${SCENE_CDN}/${sid}/happy_overlay.png?v=${SCENE_V}`
-  // P60: sad 已有专属全屏背景（sceneImageUrl 会返回 sad.png），不再需要叠加层
-  return ''
-})
-
-const moodOverlayError = ref(false)
-
-function onMoodOverlayError() {
-  moodOverlayError.value = true
-}
-
-// 物种、时间或心情变化时重置加载状态
+// P63: 物种、时间或心情变化时重置加载状态
 watch([() => props.speciesId, sceneTimeKey, () => props.mood], () => {
   sceneImageError.value = false
-  moodOverlayError.value = false
 })
 
 const props = defineProps<{
@@ -220,23 +188,16 @@ onMounted(() => generateParticles())
   transition: opacity 0.5s ease-in-out;
 }
 
-/* 时间渐变 */
+/* P63: 时间渐变 — 白天/夜晚（去除 sunset） */
 .scene--day .scene-bg {
-  background: linear-gradient(180deg, #FFE4B5 0%, #FFD699 30%, #E8A860 60%, #C07040 100%);
+  background: linear-gradient(180deg, #87CEEB, #E0F0FF);
 }
 .scene--day .scene-bg-gradient {
-  background: radial-gradient(ellipse at 50% 40%, rgba(255,200,100,0.3) 0%, transparent 70%);
-}
-
-.scene--sunset .scene-bg {
-  background: linear-gradient(180deg, #FF8C42 0%, #E85D3A 30%, #8B1A1A 60%, #3A0A0A 100%);
-}
-.scene--sunset .scene-bg-gradient {
-  background: radial-gradient(ellipse at 50% 30%, rgba(255,150,50,0.4) 0%, transparent 70%);
+  background: radial-gradient(ellipse at 50% 40%, rgba(135,206,235,0.3) 0%, transparent 70%);
 }
 
 .scene--night .scene-bg {
-  background: linear-gradient(180deg, #1A0A2E 0%, #2D1B4E 30%, #1A0A2E 60%, #0D0515 100%);
+  background: linear-gradient(180deg, #1a0a2e, #2d1b4e);
 }
 .scene--night .scene-bg-gradient {
   background: radial-gradient(ellipse at 50% 20%, rgba(180,120,255,0.15) 0%, transparent 60%),
@@ -252,21 +213,6 @@ onMounted(() => generateParticles())
 }
 .scene--mood-sad .scene-bg-gradient {
   filter: brightness(0.85) saturate(0.7);
-}
-
-/* ========== Layer 1.5: 心情叠加层 ========== */
-.mood-overlay-layer {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-.mood-overlay-img {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0.5;
 }
 
 /* ========== Layer 2: 粒子 ========== */

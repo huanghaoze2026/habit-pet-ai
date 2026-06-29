@@ -1565,10 +1565,10 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 .pet-stat-divider { width:2rpx; height:48rpx; background:rgba(0,0,0,0.08); }
 .pet-display { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24rpx; padding:40rpx; }
 
-/* P50: 宠物主体区域 — 中心点上移 100rpx */
+/* P63: 宠物主体区域 — 下移 300rpx，宠物"站"在背景平台上 */
 .pet-layer-area {
   position: absolute;
-  top: calc(55% - 425rpx);
+  top: calc(55% - 125rpx);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
