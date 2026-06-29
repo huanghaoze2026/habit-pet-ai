@@ -52,9 +52,16 @@
     "mp-weixin" : {
         "appid" : "wx33b9235184a825ea",
         "setting" : {
-            "urlCheck" : false
+            "urlCheck" : false,
+            "es6" : true,
+            "enhance" : true,
+            "postcss" : true,
+            "minified" : true,
+            "minifyWXSS" : true,
+            "minifyWXML" : true
         },
         "usingComponents" : true,
+        "lazyCodeLoading" : "requiredComponents",
         "permission" : {
             "scope.record": {
                 "desc": "用于和宠物语音对话"
