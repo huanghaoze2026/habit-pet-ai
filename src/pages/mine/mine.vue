@@ -1,0 +1,375 @@
+<template>
+  <view class="page-mine">
+    <!-- 我的宝贝卡片 -->
+    <view class="card baby-card">
+      <view class="card-title">我的宝贝</view>
+
+      <!-- 有宝贝 -->
+      <scroll-view v-if="store.childList.length" scroll-x class="baby-scroll" :show-scrollbar="false">
+        <view class="baby-scroll-inner">
+          <view
+            v-for="child in store.childList"
+            :key="child.id"
+            class="baby-item"
+            @click="goChildDetail(child.id)"
+          >
+            <view class="baby-avatar-wrap">
+              <image
+                v-if="child.avatar"
+                :src="child.avatar"
+                class="baby-avatar-img"
+                mode="aspectFill"
+              />
+              <view v-else class="baby-avatar-default">
+                <text>{{ child.gender === 'male' ? '👦' : child.gender === 'female' ? '👧' : '👶' }}</text>
+              </view>
+            </view>
+            <text class="baby-name">{{ child.nickname }}</text>
+          </view>
+
+          <!-- 添加宝贝入口 -->
+          <view class="baby-item baby-item--add" @click="goAddChild">
+            <view class="baby-avatar-wrap baby-avatar-add">
+              <text class="baby-add-icon">+</text>
+            </view>
+            <text class="baby-name baby-name--add">添加</text>
+          </view>
+        </view>
+      </scroll-view>
+
+      <!-- 无宝贝 -->
+      <view v-else class="no-baby-section">
+        <text class="no-baby-text">还没有添加宝贝</text>
+        <view class="no-baby-btn" @click="goAddChild">
+          <text>去添加宝贝</text>
+          <text class="arrow">→</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 功能入口列表 -->
+    <view class="menu-card">
+      <view class="menu-item" @click="goFriends">
+        <view class="menu-left">
+          <text class="menu-text">宠物圈好友</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
+      <view class="menu-item" @click="goPricing">
+        <view class="menu-left">
+          <text class="menu-text">购买对话能量</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
+      <view class="menu-item" @click="handleMenu('donate')">
+        <view class="menu-left">
+          <text class="menu-text">打赏开发者</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
+      <view class="menu-item" @click="goSettings">
+        <view class="menu-left">
+          <text class="menu-text">设置</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
+      <view class="menu-item" @click="handleMenu('feedback')">
+        <view class="menu-left">
+          <text class="menu-text">意见反馈</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
+      <view class="menu-item" @click="goTerms">
+        <view class="menu-left">
+          <text class="menu-text">用户协议</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
+      <view class="menu-item" @click="goPrivacy">
+        <view class="menu-left">
+          <text class="menu-text">隐私政策</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
+      <view class="menu-item" @click="openGuide">
+        <view class="menu-left">
+          <text class="menu-text">打卡养AI宠物</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
+      <view class="menu-item" @click="handleMenu('about')">
+        <view class="menu-left">
+          <text class="menu-text">关于我们</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
+      <view class="menu-item menu-item--logout" @click="handleLogout">
+        <view class="menu-left">
+          <text class="menu-text logout-text">退出登录</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script setup lang="ts">
+import { onShow } from '@dcloudio/uni-app'
+import { useChildStore } from '@/stores/child'
+import { useUserStore } from '@/stores/user'
+
+const store = useChildStore()
+const userStore = useUserStore()
+
+onShow(() => {
+  store.fetchChildList()
+})
+
+const goAddChild = () => {
+  uni.navigateTo({ url: '/pages/parent/children/add' })
+}
+
+const openGuide = () => {
+  uni.navigateTo({ url: '/pages/mine/about/index' })
+}
+
+const goSettings = () => {
+  uni.navigateTo({ url: '/pages/mine/settings/index' })
+}
+
+const goPricing = () => {
+  uni.navigateTo({ url: '/pages/mine/pricing/index' })
+}
+
+const goFriends = () => {
+  uni.navigateTo({ url: '/pages/mine/friends/index' })
+}
+
+const goTerms = () => {
+  uni.navigateTo({ url: '/pages/terms/terms' })
+}
+
+const goPrivacy = () => {
+  uni.navigateTo({ url: '/pages/privacy/privacy' })
+}
+
+const goChildDetail = (childId: string) => {
+  uni.navigateTo({ url: `/pages/parent/children/detail?id=${childId}` })
+}
+
+const handleMenu = (key: string) => {
+  if (key === 'feedback') {
+    uni.navigateTo({ url: '/pages/feedback/list' })
+    return
+  }
+  if (key === 'about') {
+    // 临时打开揽云客官网
+    uni.navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent('https://lanyunke.com/#about')}` })
+    return
+  }
+  const toasts: Record<string, string> = {
+    member: '购买对话能量',
+  }
+  uni.showToast({ title: toasts[key] || '开发中', icon: 'none' })
+}
+
+const handleLogout = () => {
+  uni.showModal({
+    title: '退出登录',
+    content: '确定要退出登录吗？',
+    success: (res) => {
+      if (res.confirm) {
+        userStore.logout()
+      }
+    },
+  })
+}
+</script>
+
+<style scoped>
+.page-mine {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #F5F0FF, #EBE0FF);
+  padding-bottom: 40rpx;
+}
+
+/* 我的宝贝卡片 */
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  margin: 24rpx 24rpx;
+  padding: 28rpx 24rpx;
+}
+
+.card-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+}
+
+/* 宝贝横向滚动 */
+.baby-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.baby-scroll-inner {
+  display: inline-flex;
+  gap: 28rpx;
+}
+
+.baby-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  flex-shrink: 0;
+}
+
+.baby-avatar-wrap {
+  width: 106rpx;
+  height: 106rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4rpx solid transparent;
+  transition: border-color 0.2s;
+}
+
+.baby-item:active .baby-avatar-wrap {
+  border-color: #333;
+}
+
+.baby-avatar-img {
+  width: 100%;
+  height: 100%;
+}
+
+.baby-avatar-default {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #D4C5F0;
+  font-size: 48rpx;
+}
+
+.baby-name {
+  font-size: 24rpx;
+  color: #333;
+  max-width: 120rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* 添加按钮 */
+.baby-avatar-add {
+  background: linear-gradient(180deg, #F5F0FF, #EBE0FF);
+  border: 3rpx dashed #5B3E96;
+  width: 106rpx;
+  height: 106rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.baby-add-icon {
+  font-size: 48rpx;
+  color: #333;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.baby-name--add {
+  color: #333;
+}
+
+/* 无宝贝 */
+.no-baby-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx 0;
+}
+
+.no-baby-text {
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 24rpx;
+}
+
+.no-baby-btn {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 40rpx;
+  background: #5B3E96;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+.arrow {
+  font-size: 26rpx;
+}
+
+/* 功能菜单 */
+.menu-card {
+  background: #fff;
+  border-radius: 16rpx;
+  margin: 0 24rpx;
+  overflow: hidden;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx 24rpx;
+}
+
+.menu-item:active {
+  background: #F5F5F5;
+}
+
+.menu-left {
+  display: flex;
+  align-items: center;
+}
+
+.menu-text {
+  font-size: 34rpx;
+  color: #333;
+}
+
+.menu-arrow {
+  font-size: 36rpx;
+  color: #CCC;
+}
+
+.menu-divider {
+  height: 1rpx;
+  background: #F0F0F0;
+  margin: 0 24rpx;
+}
+
+.logout-text {
+  color: #F44336;
+}
+</style>

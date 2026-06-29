@@ -1,0 +1,27 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+
+# CI 私钥 — 绝对不能推送到 GitHub
+ci-key/
+
+# 备份
+backup/
+backups/
+
+# 临时文件
+*.log
+*.tmp
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 环境配置（如有）
+.env
+.env.*

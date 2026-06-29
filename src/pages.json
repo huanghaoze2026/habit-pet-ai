@@ -1,0 +1,250 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "打卡养AI宠物",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/task/task",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "打卡养AI宠物",
+        "navigationBarBackgroundColor": "#F8F5FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/task/create",
+      "style": {
+        "navigationBarTitleText": "创建任务",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/task/detail",
+      "style": {
+        "navigationBarTitleText": "任务详情",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/task/checkin",
+      "style": {
+        "navigationBarTitleText": "确认打卡",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/pet/pet",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "AI宠物"
+      }
+    },
+    {
+      "path": "pages/pet/evolution-stages",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "宠物进化形态"
+      }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/mine/about/index",
+      "style": {
+        "navigationBarTitleText": "关于打卡养AI宠物",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/parent/children/detail",
+      "style": {
+        "navigationBarTitleText": "宝贝详情",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/parent/children/add",
+      "style": {
+        "navigationBarTitleText": "添加宝贝",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/parent/children/edit",
+      "style": {
+        "navigationBarTitleText": "编辑宝贝",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/parent/children/watch",
+      "style": {
+        "navigationBarTitleText": "绑定手表",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/parent/children/index",
+      "style": {
+        "navigationBarTitleText": "宝贝列表",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/mine/friends/index",
+      "style": {
+        "navigationBarTitleText": "宠物圈好友",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/mine/pet-info/index",
+      "style": {
+        "navigationBarTitleText": "宠物信息",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/mine/pricing/index",
+      "style": {
+        "navigationBarTitleText": "购买对话能量",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/mine/settings/index",
+      "style": {
+        "navigationBarTitleText": "设置",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/feedback/index",
+      "style": {
+        "navigationBarTitleText": "意见反馈",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/feedback/list",
+      "style": {
+        "navigationBarTitleText": "意见反馈",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/feedback/detail",
+      "style": {
+        "navigationBarTitleText": "反馈详情",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/webview/index",
+      "style": {
+        "navigationBarTitleText": "揽云客",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/pet-circle/index",
+      "style": {
+        "navigationBarTitleText": "宠物圈",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/invite/accept",
+      "style": {
+        "navigationBarTitleText": "加入宠物圈",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/privacy/privacy",
+      "style": {
+        "navigationBarTitleText": "隐私政策",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/terms/terms",
+      "style": {
+        "navigationBarTitleText": "用户协议",
+        "navigationBarBackgroundColor": "#F5F0FF",
+        "navigationBarTextStyle": "black"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "打卡养AI宠物",
+    "navigationBarBackgroundColor": "#F5F0FF",
+    "backgroundColor": "#F5F0FF"
+  },
+  "easycom": {
+    "autoscan": true,
+    "custom": {}
+  },
+  "tabBar": {
+    "color": "#333333",
+    "selectedColor": "#6B238E",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/task/task",
+        "text": "任务"
+      },
+      {
+        "pagePath": "pages/pet-circle/index",
+        "text": "宠物圈"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的"
+      }
+    ]
+  }
+}

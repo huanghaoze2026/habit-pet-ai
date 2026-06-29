@@ -1,0 +1,201 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "火龙犬"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/task/task",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "打卡养AI宠物"
+      }
+    },
+    {
+      "path": "pages/task/create",
+      "style": {
+        "navigationBarTitleText": "创建任务"
+      }
+    },
+    {
+      "path": "pages/task/detail",
+      "style": {
+        "navigationBarTitleText": "任务详情"
+      }
+    },
+    {
+      "path": "pages/task/checkin",
+      "style": {
+        "navigationBarTitleText": "确认打卡"
+      }
+    },
+    {
+      "path": "pages/pet/pet",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "AI宠物"
+      }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/parent/children/detail",
+      "style": {
+        "navigationBarTitleText": "宝贝详情"
+      }
+    },
+    {
+      "path": "pages/parent/children/add",
+      "style": {
+        "navigationBarTitleText": "添加宝贝"
+      }
+    },
+    {
+      "path": "pages/parent/children/edit",
+      "style": {
+        "navigationBarTitleText": "编辑宝贝"
+      }
+    },
+    {
+      "path": "pages/parent/children/watch",
+      "style": {
+        "navigationBarTitleText": "绑定手表"
+      }
+    },
+    {
+      "path": "pages/parent/children/index",
+      "style": {
+        "navigationBarTitleText": "宝贝列表"
+      }
+    },
+
+    {
+      "path": "pages/mine/friends/index",
+      "style": {
+        "navigationBarTitleText": "宠物圈好友"
+      }
+    },
+    {
+      "path": "pages/mine/pet-info/index",
+      "style": {
+        "navigationBarTitleText": "宠物信息"
+      }
+    },
+    {
+      "path": "pages/mine/settings/index",
+      "style": {
+        "navigationBarTitleText": "设置"
+      }
+    },
+    {
+      "path": "pages/mine/about/index",
+      "style": {
+        "navigationBarTitleText": "关于打卡养AI宠物"
+      }
+    },
+    {
+      "path": "pages/mine/pricing/index",
+      "style": {
+        "navigationBarTitleText": "购买对话能量"
+      }
+    },
+    {
+      "path": "pages/privacy/privacy",
+      "style": {
+        "navigationBarTitleText": "隐私政策"
+      }
+    },
+    {
+      "path": "pages/terms/terms",
+      "style": {
+        "navigationBarTitleText": "用户协议"
+      }
+    },
+    {
+      "path": "pages/feedback/index",
+      "style": {
+        "navigationBarTitleText": "意见反馈"
+      }
+    },
+    {
+      "path": "pages/feedback/list",
+      "style": {
+        "navigationBarTitleText": "意见反馈"
+      }
+    },
+    {
+      "path": "pages/feedback/detail",
+      "style": {
+        "navigationBarTitleText": "反馈详情"
+      }
+    },
+    {
+      "path": "pages/webview/index",
+      "style": {
+        "navigationBarTitleText": "揽云客"
+      }
+    },
+    {
+      "path": "pages/pet-circle/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "宠物圈"
+      }
+    },
+    {
+      "path": "pages/invite/accept",
+      "style": {
+        "navigationBarTitleText": "加入宠物圈"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "火龙犬",
+    "navigationBarBackgroundColor": "#5B3E96",
+    "backgroundColor": "#F5F0FF"
+  },
+  "easycom": {
+    "autoscan": true,
+    "custom": {}
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#5B3E96",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "height": "80rpx",
+    "list": [
+      {
+        "pagePath": "pages/task/task",
+        "text": "任务",
+        "iconPath": "static/tab/task.png",
+        "selectedIconPath": "static/tab/task.png"
+      },
+      {
+        "pagePath": "pages/pet-circle/index",
+        "text": "宠物圈",
+        "iconPath": "static/tab/circle.png",
+        "selectedIconPath": "static/tab/circle.png"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的",
+        "iconPath": "static/tab/mine.png",
+        "selectedIconPath": "static/tab/mine.png"
+      }
+    ]
+  }
+}
