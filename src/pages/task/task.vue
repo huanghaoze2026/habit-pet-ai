@@ -1,13 +1,5 @@
 <template>
   <view class="page-task">
-    <!-- P61: 宠物场景背景图 -->
-    <image
-      v-if="sceneUrl && !sceneImageError"
-      :src="sceneUrl"
-      mode="aspectFill"
-      class="task-scene-bg"
-      @error="onSceneImageError"
-    />
     <CustomNavbar title="打卡养AI宠物" :showInvite="false" />
     <view class="nav-spacer" />
 
@@ -130,32 +122,7 @@ interface Task {
 const store = useChildStore()
 
 // P61: 场景背景图
-const SCENE_CDN = 'https://stage-api.lanyunke.com/uploads/scenes'
-const SCENE_V = '20260626140000'
 const speciesId = ref('')
-const sceneUrl = ref('')
-const sceneImageError = ref(false)
-
-const timeKey = computed(() => {
-  const h = new Date().getHours()
-  return (h >= 6 && h < 18) ? 'day' : 'night'
-})
-
-function updateSceneUrl() {
-  const sid = speciesId.value
-  if (!sid) { sceneUrl.value = ''; return }
-  sceneUrl.value = `${SCENE_CDN}/${sid}/${timeKey.value}.png?v=${SCENE_V}`
-}
-
-watch([speciesId, timeKey], () => {
-  sceneImageError.value = false
-  updateSceneUrl()
-}, { immediate: true })
-
-function onSceneImageError() {
-  console.log('[task] 场景图加载失败，降级为 CSS 渐变')
-  sceneImageError.value = true
-}
 
 const userStore = useUserStore()
 const childTasks = reactive<Record<string, Task[]>>({})
@@ -448,8 +415,6 @@ const completeTask = async (task: Task) => {
 
 <style scoped>
 .page-task { position:relative; display:flex; flex-direction:column; height:100vh; background:linear-gradient(180deg,#F5F0FF,#EBE0FF); }
-/* P61: 场景背景图 — 固定全屏，z-index 0 在所有内容下方 */
-.task-scene-bg { position:absolute; top:0; left:0; width:100%; height:100%; z-index:0; object-fit:cover; pointer-events:none; }
 .nav-spacer { height:calc(88rpx + var(--status-bar, 44px)); flex-shrink:0; position:relative; z-index:1; }
 
 /* P36: 自定义导航栏 */

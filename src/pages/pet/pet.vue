@@ -1600,9 +1600,10 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 }
 
 /* P55: 状态卡 — 右上角，稍大 */
+/* P63: 宠物名称上移 200rpx */
 .pet-status-top-right {
   position: absolute;
-  top: 274rpx;
+  top: 74rpx;
   right: 24rpx;
   z-index: 10;
   max-width: 340rpx;
