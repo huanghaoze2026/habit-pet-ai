@@ -80,6 +80,13 @@
       }
     },
     {
+      "path": "pages/mine/evolution-guide/index",
+      "style": {
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/parent/children/detail",
       "style": {
         "navigationBarTitleText": "宝贝详情",

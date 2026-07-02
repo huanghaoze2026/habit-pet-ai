@@ -49,6 +49,20 @@
 
     <!-- 功能入口列表 -->
     <view class="menu-card">
+      <view class="menu-item" @click="openGuide">
+        <view class="menu-left">
+          <text class="menu-text">养宠物玩法</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
+      <view class="menu-item" @click="goEvolutionGuide">
+        <view class="menu-left">
+          <text class="menu-text">宠物进化说明</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      <view class="menu-divider" />
       <view class="menu-item" @click="goFriends">
         <view class="menu-left">
           <text class="menu-text">宠物圈好友</text>
@@ -59,13 +73,6 @@
       <view class="menu-item" @click="goPricing">
         <view class="menu-left">
           <text class="menu-text">购买对话能量</text>
-        </view>
-        <text class="menu-arrow">›</text>
-      </view>
-      <view class="menu-divider" />
-      <view class="menu-item" @click="handleMenu('donate')">
-        <view class="menu-left">
-          <text class="menu-text">打赏开发者</text>
         </view>
         <text class="menu-arrow">›</text>
       </view>
@@ -94,13 +101,6 @@
       <view class="menu-item" @click="goPrivacy">
         <view class="menu-left">
           <text class="menu-text">隐私政策</text>
-        </view>
-        <text class="menu-arrow">›</text>
-      </view>
-      <view class="menu-divider" />
-      <view class="menu-item" @click="openGuide">
-        <view class="menu-left">
-          <text class="menu-text">打卡养AI宠物</text>
         </view>
         <text class="menu-arrow">›</text>
       </view>
@@ -140,6 +140,10 @@ const goAddChild = () => {
 
 const openGuide = () => {
   uni.navigateTo({ url: '/pages/mine/about/index' })
+}
+
+const goEvolutionGuide = () => {
+  uni.navigateTo({ url: '/pages/mine/evolution-guide/index' })
 }
 
 const goSettings = () => {
