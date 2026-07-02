@@ -35,7 +35,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 
-const imgSrc = '/static/evolution-guide.png'
+const imgSrc = '/static/evolution-guide.jpg'
 const statusBarH = ref(20)
 const scale = ref(1)
 const showHint = ref(true)
