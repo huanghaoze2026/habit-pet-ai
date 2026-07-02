@@ -58,7 +58,10 @@
       <view v-if="showPetExpanded && petInfo" class="pet-detail-expanded">
         <view class="pet-detail-row">
           <text class="pet-detail-label">宠物名称</text>
-          <text class="pet-detail-value">{{ petInfo.petName || petInfo.speciesName || child.speciesName || '-' }}</text>
+          <view class="pet-detail-value-row">
+            <text class="pet-detail-value">{{ petInfo.petName || petInfo.speciesName || child.speciesName || '-' }}</text>
+            <text v-if="petDetail?.speciesId" class="view-stages-btn" @click="goViewStages">查看形态 ›</text>
+          </view>
         </view>
         <view class="pet-detail-row">
           <text class="pet-detail-label">物种</text>
@@ -127,7 +130,15 @@
 
     <!-- 任务管理 -->
     <view class="card">
-      <view class="card-title">任务管理</view>
+      <view class="card-title">
+        <text>任务管理</text>
+        <view v-if="taskStatsComputed.totalTasks > 0" class="task-stats">
+          <text class="task-stats-done">{{ taskStatsComputed.completedTasks }}</text>
+          <text class="task-stats-div">/</text>
+          <text class="task-stats-total">{{ taskStatsComputed.totalTasks }}</text>
+          <text class="task-stats-rate">完成率 {{ taskStatsComputed.completionRate > 100 ? '100%+' : taskStatsComputed.completionRate + '%' }}</text>
+        </view>
+      </view>
       <view v-if="taskGroups.length === 0" class="task-empty">
         <text class="task-empty-text">暂无任务记录</text>
       </view>
@@ -325,6 +336,16 @@ const upgradePercent = computed(() => {
 
 const petInfo = computed(() => child.value?.petId ? petDetail.value || null : null)
 
+// P65: 任务管理统计 — 优先使用统一接口数据
+const taskStatsDirect = ref<{ totalTasks: number; completedTasks: number; completionRate: number } | null>(null)
+const taskStatsComputed = computed(() => {
+  if (taskStatsDirect.value) return taskStatsDirect.value
+  // fallback: 从 taskGroups 汇总
+  let total = 0, completed = 0
+  for (const g of taskGroups.value) { total += g.totalTasks; completed += g.completedTasks }
+  return { totalTasks: total, completedTasks: completed, completionRate: total > 0 ? Math.round(completed / total * 100) : 0 }
+})
+
 const currentChildId = ref('')
 
 onLoad((options: any) => {
@@ -333,6 +354,7 @@ onLoad((options: any) => {
     currentChildId.value = cid
     fetchDetail(cid)
     fetchTaskHistory(cid)
+    loadTaskStats(cid)
   }
 })
 
@@ -340,10 +362,17 @@ onShow(() => {
   // 从任务详情等页面返回时刷新数据
   if (currentChildId.value) {
     fetchDetail(currentChildId.value);
-    // 强制刷新任务列表（使用 task/list API 获取实时 doneToday）
-    refreshTaskStatus(currentChildId.value);
+    fetchTaskHistory(currentChildId.value);
+    loadTaskStats(currentChildId.value);
   }
 })
+
+const loadTaskStats = async (childId: string) => {
+  try {
+    const res = await api.get<{ totalTasks: number; completedTasks: number; completionRate: number }>('/task/stats', { childId })
+    taskStatsDirect.value = res.data
+  } catch { taskStatsDirect.value = null }
+}
 
 const fetchDetail = async (childId: string) => {
   try {
@@ -354,50 +383,14 @@ const fetchDetail = async (childId: string) => {
   } catch { /* ignore */ }
 }
 
-const refreshTaskStatus = async (childId: string) => {
-  try {
-    const res = await api.get<{ items: any[] }>('/task/list', { childId })
-    const data = (res.data as any)?.items || res.data || []
-    if (Array.isArray(data) && data.length > 0) {
-      const today = new Date().toISOString().slice(0, 10)
-      const completedTasks = data.filter((t: any) => t.doneToday).length
-      taskGroups.value = [{
-        date: today,
-        label: '今天',
-        isToday: true,
-        totalTasks: data.length,
-        completedTasks,
-        allDone: data.every((t: any) => t.doneToday),
-        expanded: true,
-        tasks: data.map((t: any) => ({
-          id: t.id,
-          title: t.title || t.name || '',
-          icon: t.icon || '',
-          energy: t.energy || 0,
-          rewardContent: t.rewardContent || '',
-          repeatType: t.repeatType || 'daily',
-          needPhoto: t.needPhoto || false,
-          checkedIn: t.doneToday || false,
-          checkinAt: t.todayCheckinAt || null,
-          checkinImage: t.todayCheckinImage || null,
-        })),
-      }]
-    }
-  } catch (e) {
-    console.error('[Detail] refreshTaskStatus error:', e)
-  }
-}
-
 const fetchTaskHistory = async (childId: string, reloadDays?: number) => {
   const queryDays = reloadDays || 7
-  // P59: 统一使用 /task/history（按日期分组），不再降级到 /task/list
-  // 降级会导致只显示今天的数据，与用户预期的历史视图不一致
   try {
     const res = await api.get<{ groups: TaskGroupItem[] }>('/task/history', { childId, days: queryDays })
     const groups = (res.data as any)?.groups || []
     taskGroups.value = groups.map((g: any) => ({
       ...g,
-      expanded: g.isToday === true, // 只有今天默认展开
+      expanded: g.isToday === true,
     }))
     console.log('[Detail] task/history loaded:', groups.length, 'days')
   } catch (e) {
@@ -412,6 +405,10 @@ const toggleGroup = (idx: number) => {
 
 const goPet = () => uni.navigateTo({ url: '/pages/pet/pet' })
 const goSelectPet = () => uni.navigateTo({ url: '/pages/pet/select' })
+const goViewStages = () => {
+  const speciesId = petDetail.value?.speciesId
+  if (speciesId) uni.navigateTo({ url: '/pages/parent/children/pet-stages-preview?speciesId=' + speciesId })
+}
 const goTaskDetail = (task: { id: string }) => uni.navigateTo({ url: '/pages/task/detail?id=' + task.id })
 const goBindWatch = () => {
   if (child.value?.id) uni.navigateTo({ url: `/pages/parent/children/watch?id=${child.value.id}` })
@@ -530,6 +527,36 @@ const confirmDeleteChild = () => {
   border-radius: 24rpx;
 }
 
+/* 任务管理卡片右上角统计 */
+.task-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 4rpx;
+}
+.task-stats-done {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #4CAF50;
+}
+.task-stats-div {
+  font-size: 20rpx;
+  color: #CCC;
+  margin: 0 2rpx;
+}
+.task-stats-total {
+  font-size: 22rpx;
+  color: #999;
+}
+.task-stats-rate {
+  font-size: 20rpx;
+  color: #5B3E96;
+  font-weight: bold;
+  margin-left: 8rpx;
+  background: rgba(91,62,150,0.08);
+  padding: 2rpx 10rpx;
+  border-radius: 12rpx;
+}
+
 .info-row {
   display: flex;
   align-items: center;
@@ -617,7 +644,9 @@ const confirmDeleteChild = () => {
 .pet-detail-expanded { padding-top: 12rpx; }
 .pet-detail-row { display:flex; justify-content:space-between; align-items:center; padding:12rpx 0; border-bottom:1rpx solid #F5F5F5; }
 .pet-detail-label { font-size:26rpx; color:#333; }
+.pet-detail-value-row { display:flex; align-items:center; gap:16rpx; }
 .pet-detail-value { font-size:26rpx; color:#333; font-weight:500; }
+.view-stages-btn { font-size:24rpx; color:#ffffff; font-weight:600; padding:8rpx 20rpx; background:linear-gradient(135deg,#7B5EA7,#5B3E96); border-radius:24rpx; box-shadow:0 2rpx 8rpx rgba(91,62,150,0.25); }
 .upgrade-bar { width:200rpx; height:12rpx; background:#F0F0F0; border-radius:6rpx; overflow:hidden; }
 .upgrade-fill { height:100%; background:linear-gradient(90deg,#5B3E96,#D4C5F0); border-radius:6rpx; }
 .upgrade-text { font-size:22rpx; color:#333; margin-left:12rpx; }

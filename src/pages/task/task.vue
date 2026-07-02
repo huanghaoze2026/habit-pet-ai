@@ -79,6 +79,8 @@
               </view>
             </view>
           </scroll-view>
+
+
         </template>
       </swiper-item>
     </swiper>
@@ -137,14 +139,28 @@ const petName = ref('')
 const bubbleText = ref('')
 const petSpriteUrl = ref('')
 const petSpriteError = ref(false)
+
+// P65: 任务完成率统计
+const taskStats = ref<{ totalTasks: number; completedTasks: number; completionRate: number } | null>(null)
+const loadStats = async () => {
+  const cid = store.currentChildId
+  if (!cid) return
+  try {
+    const res = await api.get<{ totalTasks: number; completedTasks: number; completionRate: number }>('/task/stats', { childId: cid })
+    taskStats.value = res.data
+    console.log('[Task] Stats loaded:', res.data)
+  } catch { taskStats.value = null }
+}
+
 // P54: 任务完成粒子动画
 const showTaskParticles = ref(false)
 const particleTaskId = ref<string | number | null>(null)
+const completing = ref(false) // P65: 防重复点击
 let glowTimer: ReturnType<typeof setTimeout> | null = null
 let particleTimer: ReturnType<typeof setTimeout> | null = null
 
 const SPRITE_CDN = 'https://stage-api.lanyunke.com/uploads/sprites'
-const SPRITE_VER = 'v=20260621221500' // P50: 破微信图片缓存（更新于 2026-06-21 22:15）
+const SPRITE_VER = 'v=20260630161700' // P50: 破微信图片缓存（更新于 2026-06-30 16:17）
 
 /**
  * P54: 统一精灵图 URL 拼接 — 格式: speciesId/stageKey_emotionKey.png
@@ -330,7 +346,10 @@ const refreshCurrentChild = () => {
 onShow(() => {
   store.fetchChildList(true).then(() => {
     refreshCurrentChild()
-    if (store.currentChildId) loadPetInfo(store.currentChildId)
+    if (store.currentChildId) {
+      loadPetInfo(store.currentChildId)
+      loadStats()
+    }
   })
 })
 
@@ -362,8 +381,10 @@ const goCreateTask = () => uni.navigateTo({ url: '/pages/task/create' })
 const goDetail = (t: Task) => uni.navigateTo({ url: '/pages/task/detail?id=' + t.id })
 
 const completeTask = async (task: Task) => {
+  if (completing.value) return
   const childId = store.currentChildId
   if (!childId) return
+  completing.value = true
   try {
     if (task.needPhoto) {
       const r = await uni.chooseImage({ count: 1 })
@@ -405,10 +426,13 @@ const completeTask = async (task: Task) => {
       loadPetInfo(childId)
 
       if (childId) fetchTasksForChild(childId)
+      loadStats()
     }
+    completing.value = false
   } catch (e: any) {
-    if (e?.errMsg?.includes('cancel')||e?.errMsg?.includes('Cancel')) return
+    if (e?.errMsg?.includes('cancel')||e?.errMsg?.includes('Cancel')) { completing.value = false; return }
     uni.showToast({ title: '打卡失败，请重试', icon: 'none' })
+    completing.value = false
   }
 }
 </script>
@@ -454,6 +478,7 @@ const completeTask = async (task: Task) => {
 .top-bar-left { display:flex; align-items:center; gap:12rpx; }
 /* 今日任务：绝对定位居中，不受左侧名字长度影响 */
 .top-bar-today { font-size:32rpx; font-weight:bold; color:#4A2D7A; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; z-index:1; text-shadow:0 1rpx 3rpx rgba(255,255,255,0.9); }
+.top-bar-stats { font-size:22rpx; color:#8B5CF6; font-weight:600; margin-left:12rpx; }
 .top-bar-avatar,.top-bar-avatar-default { width:62rpx; height:62rpx; border-radius:50%; background:#D4C5F0; display:flex; align-items:center; justify-content:center; font-size:32rpx; }
 .top-bar-name { font-size:28rpx; font-weight:bold; color:#222; text-shadow:0 1rpx 2rpx rgba(255,255,255,0.8); }
 .arrow-right { font-size:24rpx; color:#222; margin-left:4rpx; }
@@ -601,4 +626,6 @@ const completeTask = async (task: Task) => {
   .create-btn{background:rgba(255,142,158,0.9)}
   .pet-float-ring{background:rgba(255,255,255,0.8)}
 }
+
+
 </style>

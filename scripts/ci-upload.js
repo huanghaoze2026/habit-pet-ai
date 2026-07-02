@@ -38,7 +38,7 @@ for (let i = 1; i < args.length; i++) {
 }
 
 const desc = params.desc || `构建时间: ${new Date().toLocaleString('zh-CN')}`;
-const version = params.version || '0.0.1';
+const version = params.version || `1.0.${Date.now()}`;
 
 // ============ 校验 ============
 

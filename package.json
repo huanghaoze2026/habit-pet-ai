@@ -8,8 +8,8 @@
     "build:mp-weixin": "uni build -p mp-weixin && node scripts/post-build-feedback.js",
     "preview": "node scripts/ci-upload.js preview",
     "upload": "node scripts/ci-upload.js upload",
-    "deploy": "npm run build:mp-weixin && npm run preview",
-    "release": "npm run build:mp-weixin && npm run preview"
+    "deploy": "npm run build:mp-weixin && npm run upload",
+    "release": "npm run build:mp-weixin && npm run upload"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-alpha-5010220260529001",

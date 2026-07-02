@@ -6,7 +6,14 @@
         <text class="nav-back-icon">←</text>
       </view>
       <text class="nav-title">任务管理</text>
-      <view class="nav-right" />
+      <view class="nav-right">
+        <text v-if="totalTasks > 0" class="nav-stats">
+          <text class="nav-stats-done">{{ completedTasks }}</text>
+          <text class="nav-stats-sep">/</text>
+          <text class="nav-stats-total">{{ totalTasks }}</text>
+          <text class="nav-stats-rate">{{ completionRate }}%</text>
+        </text>
+      </view>
     </view>
 
     <!-- 空态 -->
@@ -84,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { api } from '@/services/api'
 import { useChildStore } from '@/stores/child'
@@ -119,6 +126,22 @@ interface DateGroup {
 
 const groups = reactive<DateGroup[]>([])
 
+// P58: 汇总统计
+const totalTasks = computed(() => {
+  let sum = 0
+  for (const g of groups) sum += g.totalTasks
+  return sum
+})
+const completedTasks = computed(() => {
+  let sum = 0
+  for (const g of groups) sum += g.completedTasks
+  return sum
+})
+const completionRate = computed(() => {
+  if (totalTasks.value === 0) return 0
+  return Math.round((completedTasks.value / totalTasks.value) * 100)
+})
+
 function goBack() {
   uni.navigateBack()
 }
@@ -134,29 +157,37 @@ function formatTime(isoStr: string): string {
   }
 }
 
-async function loadHistory() {
-  const childId = store.currentChildId
-  if (!childId) return
+let requestSeq = 0
 
+async function loadHistory(childId: string) {
+  if (!childId) return
+  const seq = ++requestSeq
   isLoading.value = true
   try {
     const res = await api.get<{ groups: DateGroup[] }>(
       `/task/history?childId=${encodeURIComponent(childId)}&days=${days.value}`
     )
+    // 竞态保护：忽略过期请求
+    if (seq !== requestSeq) return
     const data = res.data || { groups: [] }
     groups.splice(0, groups.length, ...(data.groups || []))
   } catch (e) {
+    if (seq !== requestSeq) return
     console.error('[pet-info] 加载任务历史失败:', e)
     groups.splice(0, groups.length)
   } finally {
-    isLoading.value = false
+    if (seq === requestSeq) isLoading.value = false
   }
 }
 
 onShow(() => {
-  store.fetchChildList(true).then(() => {
-    loadHistory()
-  })
+  if (store.currentChildId) {
+    loadHistory(store.currentChildId)
+  } else {
+    store.fetchChildList(true).then(() => {
+      if (store.currentChildId) loadHistory(store.currentChildId)
+    })
+  }
 })
 </script>
 
@@ -200,7 +231,39 @@ onShow(() => {
   color: #333;
 }
 .nav-right {
-  width: 56rpx;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.nav-stats {
+  font-size: 24rpx;
+  color: #666;
+  display: flex;
+  align-items: baseline;
+  gap: 2rpx;
+}
+.nav-stats-done {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #4CAF50;
+}
+.nav-stats-sep {
+  font-size: 22rpx;
+  color: #ccc;
+  margin: 0 2rpx;
+}
+.nav-stats-total {
+  font-size: 24rpx;
+  color: #999;
+}
+.nav-stats-rate {
+  font-size: 22rpx;
+  color: #5B3E96;
+  font-weight: bold;
+  margin-left: 8rpx;
+  background: rgba(91,62,150,0.08);
+  padding: 2rpx 10rpx;
+  border-radius: 12rpx;
 }
 
 /* 空态 & 加载 */

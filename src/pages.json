@@ -104,6 +104,13 @@
       }
     },
     {
+      "path": "pages/parent/children/pet-stages-preview",
+      "style": {
+        "navigationBarTitleText": "宠物形态预览",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/parent/children/watch",
       "style": {
         "navigationBarTitleText": "绑定手表",

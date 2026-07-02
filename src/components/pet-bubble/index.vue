@@ -51,13 +51,14 @@ watch(
   display: flex;
   align-items: center;
   gap: 8rpx;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: 24rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.15);
   padding: 16rpx 28rpx;
-  box-shadow: 0 6rpx 24rpx rgba(0, 0, 0, 0.12), 0 2rpx 8rpx rgba(91, 62, 150, 0.08);
   animation: bubblePop 0.4s ease-out forwards;
   position: relative;
-  pointer-events: none;
   z-index: 25;
 }
 
@@ -68,7 +69,7 @@ watch(
 
 .bubble-text {
   font-size: 26rpx;
-  color: #333;
+  color: #fff;
   font-weight: 500;
   white-space: nowrap;
 }

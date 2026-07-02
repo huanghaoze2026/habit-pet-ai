@@ -36,54 +36,9 @@
 
         <!-- 宠物主页 / 聊天 / 电话 -->
         <template v-else-if="petsByChild[currentChild.id]">
-          <!-- ========== 电话模式 ========== -->
-          <view v-if="isOnCall" class="call-screen">
-            <view v-if="callGreetingFallback" class="call-greeting-fallback">
-              <text class="call-greeting-big">喂？听到吗？</text>
-            </view>
-            <view class="call-pet-area">
-              <view class="call-pet-sprite">
-                <image
-                  v-if="callSpriteUrl"
-                  :src="callSpriteUrl"
-                  class="call-pet-img"
-                  mode="aspectFit"
-                  @error="onCallSpriteError"
-                />
-                <text v-else class="pet-sprite-emoji">{{ speciesEmoji(currentChild) }}</text>
-              </view>
-              <text class="call-pet-name">{{ currentPet.stageName || speciesLabel(currentChild) }}</text>
-              <text class="call-status-text">{{ callStatusText }}</text>
-              <view v-if="callState === 'listening'" class="call-waveform">
-                <view class="call-wave-bar" v-for="i in 5" :key="i" :style="{ animationDelay: (i * 0.12) + 's' }" />
-              </view>
-            </view>
-            <view class="call-talk-area">
-              <view
-                class="call-talk-btn"
-                :class="{
-                  'call-talk-btn--active': callRecording,
-                  'call-talk-btn--disabled': callState === 'thinking' || callState === 'speaking'
-                }"
-                @touchstart.prevent="callState === 'listening' && startCallRecord()"
-                @touchend.prevent="stopCallRecord"
-                @touchcancel.prevent="cancelCallRecord"
-              >
-                <text class="call-talk-icon">{{ callTalkIcon }}</text>
-                <text class="call-talk-label">{{ callTalkLabel }}</text>
-              </view>
-            </view>
-            <view class="call-hangup-area">
-              <view class="call-hangup-btn" @click="hangUp">
-                <text class="call-hangup-icon">📞</text>
-                <text class="call-hangup-text">挂断</text>
-              </view>
-            </view>
-          </view>
-
           <!-- ========== 宠物主页 (P51 游戏级重构 + P54 交互重构) ========== -->
           <PetScene
-            v-else-if="viewMode === 'home'"
+            v-if="viewMode === 'home'"
             :mood="currentPet.mood"
             :species-id="currentPet.speciesId"
             @touchstart="onHomeTouchStart"
@@ -120,20 +75,15 @@
                 @close="petBubbleVisible = false"
               />
 
+              <!-- 通话文字气泡 -->
+              <view v-if="isOnCall && (callPetText || callStatusText)" class="call-pet-bubble">
+                <text>{{ callPetText || callStatusText }}</text>
+              </view>
+
               <!-- 宠物本体 -->
               <PetAnimator
-                :species-id="currentPet.speciesId"
-                :stage-key="currentPet.stageKey"
-                :emotion-key="displayEmotionKey"
-                :animation-state="animationState"
-                :sprite-url="currentSpriteUrl"
-                :sprite-sheet="currentSpriteSheet"
-                :frame-count="currentFrameCount"
-                :frames="currentAnimFrames"
-                :fps="animFps"
-                :loop="animLoop"
-                :auto-play="animAutoPlay"
-                :static-fallback="staticFallbackUrl"
+                :image-src="petDisplayImage"
+                :alt-action="petAltAction"
               >
                 <text class="pet-sprite-emoji">{{ speciesEmoji(currentChild) }}</text>
               </PetAnimator>
@@ -151,7 +101,7 @@
             </view>
 
             <!-- P57: 底部按钮栏 — 💬/📞/🍖 水平对齐 -->
-            <view class="pet-bottom-bar">
+            <view v-if="!isOnCall" class="pet-bottom-bar">
               <view class="pet-side-btn pet-side-btn--chat" @tap.stop="enterChat">
                 <text class="pet-side-icon">💬</text>
               </view>
@@ -160,6 +110,30 @@
               </view>
               <view class="pet-side-btn pet-side-btn--call" @tap.stop="startPhoneCall">
                 <text class="pet-side-icon">📞</text>
+              </view>
+            </view>
+
+            <!-- 通话控件（在主页上叠加） -->
+            <view v-if="isOnCall" class="call-inline-area">
+              <!-- 通话操作区 -->
+              <view class="call-inline-controls">
+                <view 
+                  class="call-talk-btn"
+                  :class="{
+                    'call-talk-btn--active': callRecording,
+                    'call-talk-btn--disabled': callState === 'thinking' || callState === 'speaking'
+                  }"
+                  @touchstart.prevent="callState === 'listening' && startCallRecord()"
+                  @touchend.prevent="stopCallRecord"
+                  @touchcancel.prevent="cancelCallRecord"
+                >
+                  <text class="call-talk-icon">{{ callTalkIcon }}</text>
+                  <text class="call-talk-label">{{ callTalkLabel }}</text>
+                </view>
+                <view class="call-hangup-btn" @click="hangUp">
+                  <text class="call-hangup-icon">📞</text>
+                  <text class="call-hangup-text">挂断</text>
+                </view>
               </view>
             </view>
 
@@ -402,7 +376,19 @@ const displayEmotionKey = computed(() => {
  * 常量映射
  * ================================================================ */
 const SPRITE_BASE = 'https://stage-api.lanyunke.com/uploads/sprites'
-const SPRITE_V = 'v=20260621221500' // P50: 破微信图片缓存（更新于 2026-06-21 22:15）
+const SPRITE_V = 'v=20260630161700' // P50: 破微信图片缓存（更新于 2026-06-30 16:17）
+
+/** P64: 宠物展示图片URL */
+const petDisplayImage = computed(() => {
+  const species = currentPet.speciesId
+  const stage = currentPet.stageKey || 'egg'
+  const emotion = currentPet.emotionKey || 'idle'
+  if (!species) return ''
+  return `${SPRITE_BASE}/${species}/${stage}_${emotion}.png?${SPRITE_V}`
+})
+
+/** P64: 简单动效类型 */
+const petAltAction = ref('')
 
 const SPECIES_EMOJI_MAP: Record<string, string> = {
   cloud_beast: '☁️', milk_tea_fox: '🦊', moon_rabbit: '🐰',
@@ -437,6 +423,51 @@ function getSpriteUrl(speciesId: string | undefined, stageKey: string, emotionKe
 }
 
 /* ================================================================
+ * 互动限制
+ * ================================================================ */
+const PET_DAILY_LIMIT = 20
+const FEED_COOLDOWN_MS = 4 * 60 * 60 * 1000 // 4小时
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+}
+
+function getDailyPetCount(): number {
+  const key = `pet_daily_count_${currentPet.id}`
+  const stored = uni.getStorageSync(key)
+  if (!stored) return 0
+  try {
+    const data = JSON.parse(stored)
+    if (data.date === getTodayKey()) return data.count
+  } catch {}
+  return 0
+}
+
+function incrementDailyPetCount() {
+  const key = `pet_daily_count_${currentPet.id}`
+  const count = getDailyPetCount() + 1
+  uni.setStorageSync(key, JSON.stringify({ date: getTodayKey(), count }))
+  return count
+}
+
+function getLastFeedTime(): number {
+  const key = `pet_last_feed_time_${currentPet.id}`
+  return uni.getStorageSync(key) || 0
+}
+
+function setLastFeedTime() {
+  const key = `pet_last_feed_time_${currentPet.id}`
+  uni.setStorageSync(key, Date.now())
+}
+
+function getFeedCooldownRemaining(): number {
+  const last = getLastFeedTime()
+  const elapsed = Date.now() - last
+  const remaining = FEED_COOLDOWN_MS - elapsed
+  return Math.max(0, remaining)
+}
+
+/* ================================================================
  * 状态
  * ================================================================ */
 interface ChatMessage {
@@ -453,16 +484,8 @@ interface PetInfo {
 const store = useChildStore()
 const currentChild = computed(() => store.childList[store.currentIndex] || null)
 
-// 精灵图 URL 计算（P48 标准化 + P57 进化中显示进化精灵图）
-const currentSpriteUrl = computed(() => {
-  const pet = currentPet
-  if (!pet.speciesId) return ''
-  // P57: 进化动画中 → 显示 evolution 图（egg_evolution 或 baby_evolution）
-  const emo = animationState.value === 'evolution' ? 'evolution' : displayEmotionKey.value
-  return getSpriteUrl(pet.speciesId, pet.stageKey, emo)
-})
 
-// 聊天/电话头像精灵图（简化版，不含情绪覆盖）
+// 聊天/电话头像精灵图
 const chatSpriteUrl = computed(() => {
   const pet = currentPet
   if (!pet.speciesId) return ''
@@ -653,9 +676,9 @@ const loadPetAndHistory = async (childId: string) => {
 
     await loadGreeting(childId)
 
-    // P51: 进入主页后启动待机随机动画
+    // P51: 进入主页后
     if (viewMode.value === 'home' && animationState.value === 'idle') {
-      nextTick(() => startIdleAnimations())
+      // P64: 已移除序列帧待机动画
     }
 
     // 加载对话历史
@@ -727,11 +750,8 @@ const enterChat = () => {
   viewMode.value = 'chat'
 }
 const backToHome = () => {
+  // P64: 已移除序列帧动画
   viewMode.value = 'home'
-  // P51: 返回主页后启动待机动画
-  nextTick(() => {
-    if (animationState.value === 'idle') startIdleAnimations()
-  })
 }
 const backToTaskList = () => { uni.redirectTo({ url: '/pages/task/task' }) }
 
@@ -757,7 +777,8 @@ const isOnCall = ref(false)
 const callState = ref<'listening' | 'thinking' | 'speaking'>('listening')
 const callChildId = ref('')
 const callBubbleText = ref('')
-const callGreetingFallback = ref(false)
+const recognizedText = ref('')
+const callPetText = ref('')
 
 const callStatusText = computed(() => {
   if (callBubbleText.value) return callBubbleText.value
@@ -765,13 +786,6 @@ const callStatusText = computed(() => {
   if (callState.value === 'thinking') return '💭 正在思考…'
   return '🔊 宠物正在说…'
 })
-/** P60: 静态兜底图 URL — 始终用 baby_idle，加载最快 */
-const staticFallbackUrl = computed(() => {
-  const species = currentPet.speciesId
-  if (!species) return ''
-  return `${SPRITE_BASE}/${species}/baby_idle.png?${SPRITE_V}`
-})
-
 function stopAllTTS() {
   audioQueue.value = []
   queueIndex = 0
@@ -793,8 +807,9 @@ const startPhoneCall = () => {
   if (!child) return
   callChildId.value = child.id
   isOnCall.value = true
+  recognizedText.value = ''
+  callPetText.value = ''
   callState.value = 'speaking'
-  callGreetingFallback.value = false
   callSpriteError.value = false
 
   if (!playingAudio.value) {
@@ -819,20 +834,16 @@ const startPhoneCall = () => {
       playingAudio.value.src = url
       playingAudio.value.onEnded(() => {
         callState.value = 'listening'
-        callGreetingFallback.value = false
       })
       playingAudio.value.onError(() => {
-        callGreetingFallback.value = true
-        setTimeout(() => { callGreetingFallback.value = false; callState.value = 'listening' }, 2000)
+        setTimeout(() => { callState.value = 'listening' }, 2000)
       })
       playingAudio.value.play()
     } else {
-      callGreetingFallback.value = true
-      setTimeout(() => { callGreetingFallback.value = false; callState.value = 'listening' }, 2000)
+      setTimeout(() => { callState.value = 'listening' }, 2000)
     }
   }).catch(() => {
-    callGreetingFallback.value = true
-    setTimeout(() => { callGreetingFallback.value = false; callState.value = 'listening' }, 2000)
+    setTimeout(() => { callState.value = 'listening' }, 2000)
   })
 }
 
@@ -853,6 +864,7 @@ const callRecorder = ref<any>(null)
 function startCallRecord() {
   if (!isOnCall.value || callState.value !== 'listening') return
   stopAllTTS()
+  recognizedText.value = ''
   callRecording.value = true
   const recorder = uni.getRecorderManager()
   callRecorder.value = recorder
@@ -886,13 +898,16 @@ async function processCallVoice(childId: string, filePath: string) {
   if (!isOnCall.value || callChildId.value !== childId) return
   callState.value = 'thinking'
   callBubbleText.value = '💭 正在思考…'
+
   try {
     const res = await api.upload<{ text: string; transcribedText: string; segments: Array<{text:string;audioUrl:string}>; latencyMs: number }>('/ai/voice-chat-groq', filePath, { childId })
     const result = res.data
     const reply = result?.text || '嗯…信号不太好，你再说一遍？'
-    const userText = result?.transcribedText || ''
+    const petReply = result?.text || ''
+    callPetText.value = petReply
     const segments = result?.segments || []
     callState.value = 'speaking'
+
     if (segments.length > 0) {
       playStreamSegments(segments)
     } else {
@@ -909,22 +924,27 @@ async function processCallVoice(childId: string, filePath: string) {
       }
     }, 200)
   } catch {
-    const fallbackText = '主人，信号不太好，我们待会儿再聊吧'
-    callBubbleText.value = fallbackText
-    callState.value = 'speaking'
-    if (!chatCache[childId]) chatCache[childId] = []
-    chatCache[childId] = [...chatCache[childId], { role: 'pet_call', content: fallbackText }]
-    api.post<{ audioUrl: string }>('/ai/tts', { text: fallbackText }).then(r => {
-      const url = r.data?.audioUrl || ''
-      if (url) {
-        stopAllTTS()
-        const a = uni.createInnerAudioContext({ useWebAudioImplement: true })
-        a.obeyMuteSwitch = false; a.src = url
-        a.onEnded(() => { callState.value = 'listening' })
-        a.onError(() => { callState.value = 'listening' })
-        a.play()
-      } else { callState.value = 'listening' }
-    }).catch(() => { callState.value = 'listening' })
+    // 如果 AI 文字已经显示出来了（API TTS 段可能为空但文字已成功返回），不要覆盖
+    if (!callPetText.value) {
+      const fallbackText = '主人，信号不太好，我们待会儿再聊吧'
+      callBubbleText.value = fallbackText
+      if (!chatCache[childId]) chatCache[childId] = []
+      chatCache[childId] = [...chatCache[childId], { role: 'pet_call', content: fallbackText }]
+      api.post<{ audioUrl: string }>('/ai/tts', { text: fallbackText }).then(r => {
+        const url = r.data?.audioUrl || ''
+        if (url) {
+          stopAllTTS()
+          const a = uni.createInnerAudioContext({ useWebAudioImplement: true })
+          a.obeyMuteSwitch = false; a.src = url
+          a.onEnded(() => { callState.value = 'listening' })
+          a.onError(() => { callState.value = 'listening' })
+          a.play()
+        } else { callState.value = 'listening' }
+      }).catch(() => { callState.value = 'listening' })
+    } else {
+      // AI 文字已显示，静默恢复 listening
+      callState.value = 'listening'
+    }
   }
 }
 
@@ -961,7 +981,8 @@ function playStreamTTSForReply(text: string) {
 
 const hangUp = () => {
   isOnCall.value = false
-  callGreetingFallback.value = false
+  recognizedText.value = ''
+  callPetText.value = ''
   stopAllTTS()
   callRecording.value = false
   try { callRecorder.value?.stop() } catch {}
@@ -977,293 +998,65 @@ const hangUp = () => {
 /* ================================================================
  * P48: 宠物互动 — 使用 localEmotionOverride
  * ================================================================ */
-/** P54: 摸头气泡文案池 */
-const petTapBubbles = [
-  '嘿嘿，主人摸摸我啦！',
-  '我最喜欢主人了！',
-  '再摸一下嘛～',
-  '好舒服呀！',
-]
-
 /* ================================================================
- * P51: 动作帧系统 — 序列帧播放 + 待机随机动画
+ * P64: 已移除所有序列帧/Sprite Sheet 动画 — 回归静态图 + 气泡交互
  * ================================================================ */
-const ACT_BASE = 'https://stage-api.lanyunke.com/uploads/sprites'
 
-/** 构建动作帧 URL 数组 */
-function buildActionFrames(species: string, stage: string, action: string): string[] {
-  const config = ACTION_FRAME_COUNTS[action]
-  if (!config) return []
-  const { count, isStatic } = config
-
-  if (isStatic) {
-    return [`${ACT_BASE}/${species}/act/${species}_${stage}_${action}.png?${SPRITE_V}`]
-  }
-
-  const frames: string[] = []
-  for (let i = 1; i <= count; i++) {
-    const num = String(i).padStart(2, '0')
-    frames.push(`${ACT_BASE}/${species}/act/${species}_${stage}_${action}_${num}.png?${SPRITE_V}`)
-  }
-  return frames
-}
-
-/* ================================================================
- * P58: 动作精灵图配置 — Sprite Sheet 优先，帧序列降级
- * ================================================================ */
-const ACTION_SPRITES: Record<string, { sheet: string; frames: number; fps: number; framesLegacy?: string[] }> = {
-  idle: {
-    sheet: '',
-    frames: 10,
-    fps: 8
-  },
-  petting: {
-    sheet: '',
-    frames: 6,
-    fps: 6
-  },
-  eating: {
-    sheet: '',
-    frames: 10,
-    fps: 7
-  },
-  tailwag: {
-    sheet: '',
-    frames: 4,
-    fps: 4
-  },
-  headshake: {
-    sheet: '',
-    frames: 4,
-    fps: 4
-  },
-  blink: {
-    sheet: '',
-    frames: 1,
-    fps: 1
-  },
-  happy: {
-    sheet: '',
-    frames: 1,
-    fps: 1
-  },
-  evolution: {
-    sheet: '',
-    frames: 1,
-    fps: 1
-  },
-}
-
-/** 动作帧数量配置（旧，降级用） */
-const ACTION_FRAME_COUNTS: Record<string, { count: number; isStatic?: boolean }> = {
-  idle: { count: 10 },
-  tailwag: { count: 4 },
-  headshake: { count: 4 },
-  blink: { count: 1, isStatic: true },  // blink 用 CSS 模拟
-  petting: { count: 6 },
-  happy: { count: 1, isStatic: true },
-  eating: { count: 10 },
-  evolution: { count: 1, isStatic: true },
-}
-
-const currentAnimFrames = ref<string[]>([])
-const currentSpriteSheet = ref('')
-const currentFrameCount = ref(8)
-const animFps = ref(4)
-const animLoop = ref(true)
-const animAutoPlay = ref(true)
-
-/** P58: 设置当前播放动作 — Sprite Sheet 优先，帧序列降级 */
-function setAnimAction(action: string) {
-  const species = currentPet.speciesId
-  const stage = currentPet.stageKey || 'baby'
-  if (!species) {
-    currentAnimFrames.value = []
-    currentSpriteSheet.value = ''
-    return
-  }
-
-  // P60: blink 不再依赖 CSS，改用静态帧（清理 spriteSheet 短暂显示静态图模拟眨眼）
-  if (action === 'blink') {
-    const frames = buildActionFrames(species, stage, 'blink')
-    currentSpriteSheet.value = ''
-    currentAnimFrames.value = frames
-    animFps.value = 1
-    animLoop.value = false
-    animAutoPlay.value = false
-    return
-  }
-
-  const config = ACTION_SPRITES[action]
-  if (!config) {
-    currentAnimFrames.value = []
-    currentSpriteSheet.value = ''
-    return
-  }
-
-  // P58: Sprite Sheet 优先
-  if (config.sheet) {
-    currentSpriteSheet.value = config.sheet
-    currentFrameCount.value = config.frames
-    animFps.value = config.fps
-    animLoop.value = true
-    animAutoPlay.value = true
-    currentAnimFrames.value = []
-    return
-  }
-
-  // 降级：尝试帧模式
-  currentSpriteSheet.value = ''
-  if (config.framesLegacy && config.framesLegacy.length > 0) {
-    currentAnimFrames.value = config.framesLegacy
-    animFps.value = config.fps
-    animLoop.value = true
-    animAutoPlay.value = true
-    return
-  }
-
-  // 降级：构建帧 URL 数组
-  const frames = buildActionFrames(species, stage, action)
-  if (frames.length === 0) {
-    currentAnimFrames.value = []
-    return
-  }
-
-  currentAnimFrames.value = frames
-  animFps.value = config.fps
-  animLoop.value = true
-  animAutoPlay.value = true
-}
-
-// ===== P51: 待机随机动画系统 =====
-let idleTimer: ReturnType<typeof setInterval> | null = null
-let idleBlinkTimer: ReturnType<typeof setTimeout> | null = null
-let idleTailwagTimer: ReturnType<typeof setTimeout> | null = null
-
-/** P60: 播放单次眨眼 — 使用 Sprite Sheet 动作替代 CSS 动画 */
-function triggerBlink() {
-  if (animationState.value !== 'idle' || viewMode.value !== 'home') return
-  // P60: 不使用 CSS 眨眼动画，改用简要的 Sprite Sheet 动作
-  setAnimAction('blink')
-  animationState.value = 'blink'
-  setTimeout(() => {
-    setAnimAction('idle')
-    animationState.value = 'idle'
-  }, 200)
-  scheduleNextBlink()
-}
-
-function scheduleNextBlink() {
-  if (idleBlinkTimer) clearTimeout(idleBlinkTimer)
-  const delay = 3000 + Math.random() * 2000  // 3-5秒
-  idleBlinkTimer = setTimeout(() => {
-    triggerBlink()
-  }, delay)
-}
-
-/** 播放甩尾巴 */
-function triggerTailwag() {
-  if (animationState.value !== 'idle' || viewMode.value !== 'home') return
-  animationState.value = 'tailwag'
-  setAnimAction('tailwag')
-  setTimeout(() => {
-    animationState.value = 'idle'
-    scheduleNextTailwag()
-  }, 1200)
-}
-
-function scheduleNextTailwag() {
-  if (idleTailwagTimer) clearTimeout(idleTailwagTimer)
-  const delay = 5000 + Math.random() * 3000  // 5-8秒
-  idleTailwagTimer = setTimeout(() => {
-    triggerTailwag()
-  }, delay)
-}
-
-/** 启动待机序列帧 + 随机动画（眨眼+摇尾巴） */
-function startIdleAnimations() {
-  stopIdleAnimations()
-  setAnimAction('idle')
-  scheduleNextBlink()
-  scheduleNextTailwag()
-}
-
-/** 停止待机随机动画 */
-function stopIdleAnimations() {
-  if (idleBlinkTimer) { clearTimeout(idleBlinkTimer); idleBlinkTimer = null }
-  if (idleTailwagTimer) { clearTimeout(idleTailwagTimer); idleTailwagTimer = null }
-  if (idleTimer) { clearInterval(idleTimer); idleTimer = null }
-}
-
-/** 恢复 idle 状态时重新开始待机序列帧 */
-watch(animationState, (newVal, oldVal) => {
-  if (newVal === 'idle' && oldVal !== 'idle') {
-    setAnimAction('idle')
-    startIdleAnimations()
-  }
-  if (newVal !== 'idle') {
-    stopIdleAnimations()
-  }
-})
-
-/** P54: 点击宠物触发抚摸 — 播放 petting 序列帧 */
+/** P64: 点击宠物触发抚摸 — 仅显示气泡 */
 function handlePetTap() {
   if (viewMode.value !== 'home') return
   if (animationState.value === 'evolution') return
 
-  stopIdleAnimations()
-  // P60: 不设置 animationState 驱动 CSS 动画，仅切换 Sprite Sheet 动作
-  setAnimAction('petting')
-  setEmotionOverride('happy', 4000)
+  // 每日抚摸限制
+  const count = getDailyPetCount()
+  if (count >= PET_DAILY_LIMIT) {
+    uni.showToast({ title: '今天抚摸够了，明天再来吧', icon: 'none', duration: 2000 })
+    return
+  }
 
-  const bubble = petTapBubbles[Math.floor(Math.random() * petTapBubbles.length)]
-  petBubbleText.value = bubble
+  const bubbles = ['好舒服呀～', '嗷呜！再摸摸！', '尾巴都要摇掉啦！', '嘿嘿，主人最好啦！', '再摸一下嘛～']
+  petBubbleText.value = bubbles[Math.floor(Math.random() * bubbles.length)]
   petBubbleVisible.value = true
+  petAltAction.value = 'bounce'
   currentPet.mood = Math.min(100, currentPet.mood + 3)
 
   api.post('/pet-circle/log/interaction', { childId: currentChild.value?.id, petId: currentPet?.id, interactionType: 'pet' }).catch(() => {})
+  incrementDailyPetCount()
 
   setTimeout(() => {
     petBubbleText.value = ''
     petBubbleVisible.value = false
-    startIdleAnimations()
-  }, 4000)
+    petAltAction.value = ''
+  }, 3000)
 }
 
-const petPet = () => {
-  // P60: 不设置 animationState 驱动 CSS 动画
-  setEmotionOverride('happy', 4000)
-  petBubbleText.value = '好舒服呀～🤚✨'
-  petBubbleVisible.value = true
-  currentPet.mood = Math.min(100, currentPet.mood + 5)
-
-  api.post('/pet-circle/log/interaction', { childId: currentChild.value?.id, petId: currentPet?.id, interactionType: 'pet' }).catch(() => {})
-
-  setTimeout(() => {
-    petBubbleText.value = ''
-    petBubbleVisible.value = false
-  }, 4000)
-}
-
+/** P64: 喂食 — 仅显示气泡 */
 const feedPet = () => {
-  stopIdleAnimations()
-  // P60: 不设置 animationState 驱动 CSS 动画，仅切换 Sprite Sheet 动作
-  setAnimAction('eating')
-  setEmotionOverride('eating', 4000)
-  petBubbleText.value = '吃饱啦！😋'
+  // 喂食冷却检查
+  const remaining = getFeedCooldownRemaining()
+  if (remaining > 0) {
+    const hours = Math.ceil(remaining / (60 * 60 * 1000))
+    uni.showToast({ title: `今天吃饱了，${hours}个小时后，再来喂我吧`, icon: 'none', duration: 2000 })
+    return
+  }
+
+  const bubbles = ['吃饱啦！好满足～', '嗷呜，谢谢主人！', '嗝～太好吃啦！', '主人最好了！']
+  petBubbleText.value = bubbles[Math.floor(Math.random() * bubbles.length)]
   petBubbleVisible.value = true
+  petAltAction.value = 'bounce'
   petEnergy.value = Math.min(100, petEnergy.value + 10)
 
   api.post('/pet-circle/log/interaction', { childId: currentChild.value?.id, petId: currentPet?.id, interactionType: 'feed' }).catch(() => {})
+  setLastFeedTime()
 
   setTimeout(() => {
     petBubbleText.value = ''
     petBubbleVisible.value = false
-    startIdleAnimations()
-  }, 4000)
+    petAltAction.value = ''
+  }, 3000)
 }
 
-// 🔧 临时测试函数
+// 🔧 临时测试函数 — P64: 回归纯气泡
 const testBreathe = () => {
   animationState.value = 'idle'
   localEmotionOverride.value = null
@@ -1272,26 +1065,22 @@ const testBreathe = () => {
   currentPet.mood = 50
 }
 const testHappy = () => {
-  // P60: 不设置 animationState 驱动 CSS 动画
-  setEmotionOverride('happy', 4000)
   petBubbleText.value = '好舒服呀～🤚✨'
   petBubbleVisible.value = true
+  petAltAction.value = 'bounce'
   currentPet.mood = 85
-  setTimeout(() => { petBubbleText.value = ''; petBubbleVisible.value = false }, 4000)
+  setTimeout(() => { petBubbleText.value = ''; petBubbleVisible.value = false; petAltAction.value = '' }, 3000)
 }
 const testEating = () => {
-  stopIdleAnimations()
-  // P60: 不设置 animationState 驱动 CSS 动画，仅切换 Sprite Sheet 动作
-  setAnimAction('eating')
-  setEmotionOverride('eating', 4000)
   petBubbleText.value = '吃饱啦！😋'
   petBubbleVisible.value = true
+  petAltAction.value = 'bounce'
   petEnergy.value = 90
   setTimeout(() => {
     petBubbleText.value = ''
     petBubbleVisible.value = false
-    startIdleAnimations()
-  }, 4000)
+    petAltAction.value = ''
+  }, 3000)
 }
 const testSad = () => {
   currentPet.mood = 30
@@ -1568,7 +1357,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 /* P63: 宠物主体区域 — 下移 300rpx，宠物"站"在背景平台上 */
 .pet-layer-area {
   position: absolute;
-  top: calc(55% - 125rpx);
+  top: calc(55% - 205rpx);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1580,23 +1369,13 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   z-index: 5;
 }
 
-/* P57: 宠物缩放 — 蛋仔 600rpx / 幼体 840rpx（放大2倍） */
+/* 统一所有阶段宠物图片尺寸为 560rpx */
 .pet-layer-area :deep(.pet-anim-img),
 .pet-layer-area :deep(.pet-anim-sprite) {
+  width: 560rpx !important;
+  height: 560rpx !important;
   transform: scale(1.0);
   filter: drop-shadow(0 12rpx 24rpx rgba(0,0,0,0.3)) drop-shadow(0 0 20rpx rgba(255,255,255,0.15));
-}
-/* P57: 蛋仔期尺寸 */
-.pet-layer-area--egg :deep(.pet-anim-img),
-.pet-layer-area--egg :deep(.pet-anim-sprite) {
-  width: 600rpx !important;
-  height: 600rpx !important;
-  transform: scale(1.0);
-}
-.pet-layer-area--baby :deep(.pet-anim-img),
-.pet-layer-area--baby :deep(.pet-anim-sprite) {
-  width: 840rpx !important;
-  height: 840rpx !important;
 }
 
 /* P55: 状态卡 — 右上角，稍大 */
@@ -1664,35 +1443,126 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 .back-btn { width:56rpx; height:56rpx; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .back-arrow { font-size:36rpx; color:#5B3E96; font-weight:bold; }
 
-/* 电话模式 */
-.call-screen { display:flex; flex-direction:column; height:100%; background:linear-gradient(180deg,#1a1a2e,#16213e,#0f3460); align-items:center; justify-content:center; }
-.call-pet-area { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:32rpx; }
-.call-pet-sprite { font-size:260rpx; line-height:1; }
-.call-pet-name { font-size:48rpx; font-weight:bold; color:#fff; }
-.call-status-text { font-size:28rpx; color:rgba(255,255,255,0.7); }
-.call-waveform { display:flex; align-items:flex-end; gap:8rpx; height:40rpx; margin-top:8rpx; }
-.call-wave-bar { width:8rpx; background:rgba(255,255,255,0.6); border-radius:4rpx; animation:call-wave 0.6s ease-in-out infinite; }
-.call-wave-bar:nth-child(1) { height:16rpx; }
-.call-wave-bar:nth-child(2) { height:28rpx; }
-.call-wave-bar:nth-child(3) { height:40rpx; }
-.call-wave-bar:nth-child(4) { height:28rpx; }
-.call-wave-bar:nth-child(5) { height:16rpx; }
-@keyframes call-wave { 0%,100% { transform:scaleY(1); } 50% { transform:scaleY(0.3); } }
-.call-hangup-area { padding:40rpx 0 80rpx; display:flex; justify-content:center; }
-.call-talk-area { display:flex; justify-content:center; padding:20rpx 0; }
-.call-talk-btn { width:280rpx; height:280rpx; border-radius:50%; background:linear-gradient(135deg,#6366F1,#818CF8); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12rpx; box-shadow:0 8rpx 30rpx rgba(99,102,241,0.4); transition:transform 0.1s; }
-.call-talk-btn:active { transform:scale(0.93); }
-.call-talk-btn--active { background:linear-gradient(135deg,#FF4444,#FF6B6B); box-shadow:0 8rpx 30rpx rgba(255,68,68,0.4); animation:call-pulse 1.2s ease-in-out infinite; }
-.call-talk-btn--disabled { background:#ccc; box-shadow:none; pointer-events:none; }
-@keyframes call-pulse { 0%,100% { box-shadow:0 8rpx 30rpx rgba(255,68,68,0.4); } 50% { box-shadow:0 8rpx 50rpx rgba(255,68,68,0.7); } }
-.call-talk-icon { font-size:64rpx; }
-.call-talk-label { font-size:28rpx; color:#fff; font-weight:bold; }
-.call-hangup-btn { width:140rpx; height:140rpx; border-radius:50%; background:#FF4444; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 8rpx 30rpx rgba(255,68,68,0.4); }
-.call-hangup-btn:active { transform:scale(0.92); }
-.call-hangup-icon { font-size:52rpx; }
-.call-hangup-text { font-size:22rpx; color:#fff; margin-top:4rpx; }
-.call-greeting-fallback { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:20; }
-.call-greeting-big { font-size:56rpx; color:#fff; font-weight:bold; text-align:center; text-shadow:0 4rpx 20rpx rgba(0,0,0,0.5); }
+/* 电话覆盖层 — 在宠物主页上叠加 */
+.call-inline-area {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20rpx;
+  padding: 20rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  z-index: 100;
+  pointer-events: none;
+}
+
+.call-pet-bubble,
+.greeting-bubble {
+  position: absolute;
+  top: -80rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 75%;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.15);
+  padding: 20rpx 28rpx;
+  z-index: 30;
+  pointer-events: none;
+  white-space: normal;
+  word-break: break-all;
+}
+
+.call-pet-bubble text,
+.greeting-bubble text {
+  font-size: 30rpx;
+  color: #fff;
+  line-height: 44rpx;
+  font-weight: 500;
+}
+
+.call-inline-controls {
+  display: flex;
+  align-items: center;
+  gap: 32rpx;
+  pointer-events: auto;
+}
+
+.call-talk-btn {
+  width: 260rpx;
+  height: 260rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366F1, #818CF8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  box-shadow: 0 8rpx 30rpx rgba(99,102,241,0.4);
+  transition: transform 0.1s;
+}
+
+.call-talk-btn:active {
+  transform: scale(0.93);
+}
+
+.call-talk-btn--active {
+  background: linear-gradient(135deg, #FF4444, #FF6B6B);
+  box-shadow: 0 8rpx 30rpx rgba(255,68,68,0.4);
+  animation: call-pulse 1.2s ease-in-out infinite;
+}
+
+.call-talk-btn--disabled {
+  background: #ccc;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+@keyframes call-pulse {
+  0%, 100% { box-shadow: 0 8rpx 30rpx rgba(255,68,68,0.4); }
+  50% { box-shadow: 0 8rpx 50rpx rgba(255,68,68,0.7); }
+}
+
+.call-talk-icon {
+  font-size: 56rpx;
+}
+
+.call-talk-label {
+  font-size: 26rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+.call-hangup-btn {
+  width: 110rpx;
+  height: 110rpx;
+  border-radius: 50%;
+  background: #FF4444;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 30rpx rgba(255,68,68,0.4);
+}
+
+.call-hangup-btn:active {
+  transform: scale(0.92);
+}
+
+.call-hangup-icon {
+  font-size: 44rpx;
+}
+
+.call-hangup-text {
+  font-size: 20rpx;
+  color: #fff;
+  margin-top: 2rpx;
+}
 
 /* P50: 3D 游戏按钮 — 玻璃质感 + 弹性反馈 */
 .game-btn {
@@ -1744,30 +1614,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 
 /* 问候语 + 心情文字 */
 /* P50: 问候气泡 — 绝对定位悬浮在宠物上方，不挤压宠物 */
-.greeting-bubble {
-  position: absolute;
-  top: -80rpx;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  background: rgba(255,255,255,0.95);
-  border-radius: 20rpx;
-  padding: 20rpx 28rpx;
-  font-size: 28rpx;
-  color: #333;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.06);
-  z-index: 20;
-  pointer-events: none;
-}
-.greeting-bubble::after {
-  content: '';
-  position: absolute;
-  bottom: -16rpx;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 10rpx solid transparent;
-  border-top-color: rgba(255,255,255,0.95);
-}
+
 .greeting-bubble--first {
   animation: greetingFadeIn 0.8s ease-out both;
   border: 2rpx solid rgba(255,142,158,0.5);

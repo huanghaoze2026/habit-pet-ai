@@ -142,12 +142,16 @@ const handleSubmit = async () => {
     return
   }
   if (!taskId.value) {
-    uni.showToast({ title: '任务信息丢失', icon: 'none' })
+    uni.showToast({ title: '任务信息丢失，请返回重试', icon: 'none' })
+    return
+  }
+  if (!childId.value && !store.currentChildId) {
+    uni.showToast({ title: '宝贝信息缺失，请返回重试', icon: 'none' })
     return
   }
 
   submitting.value = true
-  try {
+  const doUpload = async (): Promise<any> => {
     const token = uni.getStorageSync('habitpet_token') || ''
     const formData: Record<string, string> = {
       taskId: taskId.value,
@@ -157,8 +161,7 @@ const handleSubmit = async () => {
       formData.note = note.value.trim()
     }
 
-    // 上传照片 + 打卡（使用带照片上传的接口）
-    await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       uni.uploadFile({
         url: `${BASE_URL}/checkin/submit-with-photo`,
         filePath: photoPath.value,
@@ -173,15 +176,27 @@ const handleSubmit = async () => {
               console.log('[Checkin] upload success:', body)
               resolve(body)
             } else {
-              reject(new Error(body.message || '上传失败'))
+              reject(new Error(body.message || '服务器处理失败'))
             }
           } catch {
-            reject(new Error('解析响应失败'))
+            reject(new Error('服务器响应异常，请稍后重试'))
           }
         },
-        fail: reject,
+        fail: (err) => {
+          reject(new Error(err.errMsg || '网络连接失败'))
+        },
       })
     })
+  }
+
+  try {
+    // 首次上传，失败自动重试 1 次
+    try {
+      await doUpload()
+    } catch (firstErr: any) {
+      console.warn('[Checkin] first attempt failed, retrying...', firstErr.message)
+      await doUpload()
+    }
 
     // 通知任务列表刷新
     uni.$emit('task:refresh')
@@ -190,7 +205,8 @@ const handleSubmit = async () => {
     setTimeout(() => uni.redirectTo({ url: '/pages/task/task' }), 800)
   } catch (e: any) {
     console.error('[Checkin] submit error:', e)
-    uni.showToast({ title: '打卡失败，请重试', icon: 'none' })
+    const errMsg = e?.message || '打卡失败'
+    uni.showToast({ title: errMsg, icon: 'none', duration: 2500 })
   } finally {
     submitting.value = false
   }

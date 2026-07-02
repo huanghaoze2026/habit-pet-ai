@@ -41,8 +41,8 @@
           </view>
           <button class="profile-submit-btn" :class="{'profile-submit-btn--auto':autoCountdown>0}" :disabled="!canSubmit" :loading="profileSubmitting" @tap="submitProfile">
             <text v-if="profileSubmitting">保存中...</text>
-            <text v-else-if="autoCountdown>0">✅ 将在 {{ autoCountdown }}s 后自动完成</text>
-            <text v-else>完成</text>
+            <text v-else-if="autoCountdown>0">🎉 {{ autoCountdown }}s 后自动进入</text>
+            <text v-else>进入应用</text>
           </button>
           <text class="profile-skip" @tap="skipProfile">暂不设置，以后再说</text>
         </view>
@@ -77,12 +77,12 @@ onLoad((options: any) => {
 })
 
 const profileForm = reactive({ avatarUrl: '', nickname: '' })
-const canSubmit = computed(() => !!profileForm.avatarUrl && !!profileForm.nickname)
+const canSubmit = computed(() => !!profileForm.nickname.trim())
 
 watch(
   () => [profileForm.avatarUrl, profileForm.nickname] as const,
   ([avatar, nickname]) => {
-    if (avatar && nickname && autoCountdown.value === 0) {
+    if (nickname && nickname.trim() && autoCountdown.value === 0) {
       autoCountdown.value = 2
       countdownTimer = setInterval(() => {
         autoCountdown.value--

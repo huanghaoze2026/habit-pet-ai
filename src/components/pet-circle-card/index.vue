@@ -75,7 +75,7 @@ function barH(v:number){ return Math.max(8,(v/(props.maxStats||1))*70)+'rpx' }
 .pcc-card{position:relative;border-radius:16rpx;overflow:hidden;box-shadow:0 2rpx 12rpx rgba(0,0,0,.08)}
 .pcc-bg{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0}
 .pcc-bg-fb{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;background:linear-gradient(180deg,#D4C5F0,#A8D8EA,#87CEEB)}
-.pcc-pet{position:absolute;top:25%;left:10%;width:80%;height:55%;z-index:1}
+.pcc-pet{position:absolute;top:calc(25% + 50rpx);left:10%;width:80%;height:55%;z-index:1}
 .pcc-tl{position:absolute;top:10rpx;left:10rpx;z-index:2;display:flex;align-items:center;gap:8rpx;background:rgba(0,0,0,.4);backdrop-filter:blur(6rpx);border-radius:8rpx;padding:4rpx 12rpx;color:#fff}
 .pcc-av{width:40rpx;height:40rpx;border-radius:50%}
 .pcc-av-em{width:40rpx;height:40rpx;border-radius:50%;background:rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:24rpx}

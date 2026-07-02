@@ -108,7 +108,11 @@
           <text class="picker-arrow">›</text>
         </view>
       </picker>
-      <text v-if="form.speciesId" class="species-view-link" @tap="goEvolutionStages">点此查看各阶段样貌 →</text>
+      <view v-if="form.speciesId" class="species-view-row">
+        <view class="species-view-btn" @tap="goStagesPreview">
+          <text>👁 查看形态</text>
+        </view>
+      </view>
     </view>
 
     <!-- 手表绑定（选填） -->
@@ -158,8 +162,9 @@ async function loadSpecies() {
 }
 loadSpecies()
 
-function goEvolutionStages() {
-  uni.navigateTo({ url: '/pages/pet/evolution-stages' })
+function goStagesPreview() {
+  const name = encodeURIComponent(selectedSpecies.value?.name || '')
+  uni.navigateTo({ url: `/pages/parent/children/pet-stages-preview?speciesId=${form.speciesId}&speciesName=${name}` })
 }
 
 function onSpeciesChange(e: { detail: { value: number } }) {
@@ -520,13 +525,26 @@ async function handleSubmit(): Promise<void> {
   white-space: nowrap;
 }
 
-.species-view-link {
-  font-size: 24rpx;
-  color: #5B3E96;
-  margin-top: 8rpx;
-  display: block;
-  font-weight: 500;
-  text-decoration: underline;
+.species-view-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16rpx;
+}
+
+.species-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14rpx 32rpx;
+  background: linear-gradient(135deg, #7B5EA7, #5B3E96);
+  border-radius: 32rpx;
+  box-shadow: 0 4rpx 12rpx rgba(91, 62, 150, 0.25);
+}
+
+.species-view-btn text {
+  font-size: 26rpx;
+  color: #ffffff;
+  font-weight: 600;
 }
 
 // ===== 跳过选项 =====

@@ -85,12 +85,9 @@ export async function submitCheckin(taskId: string, childId?: string): Promise<C
 }
 
 /**
- * 获取今日打卡记录
- *
- * @param childId 孩子 ID（可选）
+ * P65: 获取任务完成率统计
  */
-export async function getTodayCheckins(childId?: string): Promise<{ taskIds: string[] }> {
-  const query = childId ? `?childId=${encodeURIComponent(childId)}` : '';
-  const res = await api.get<{ taskIds: string[] }>(`/checkin/today${query}`);
-  return res.data;
+export async function getTaskStats(childId: string): Promise<{ totalTasks: number; completedTasks: number; completionRate: number }> {
+  const res = await api.get<{ totalTasks: number; completedTasks: number; completionRate: number }>(`/task/stats?childId=${encodeURIComponent(childId)}`)
+  return res.data
 }
