@@ -68,17 +68,20 @@
                 <text>{{ greetingText }}</text>
               </view>
 
+              <!-- P68: 通话状态指示（宠物上方） -->
+              <view v-if="isOnCall" class="call-status-indicator">
+                <text v-if="callStatus === 'connecting'" class="call-status-dot call-status-dot--connecting">● 正在接通...</text>
+                <text v-else-if="callStatus === 'pet_speaking'" class="call-status-dot call-status-dot--speaking">● 宠物正在说...</text>
+                <text v-else-if="callStatus === 'listening'" class="call-status-dot call-status-dot--listening">● 正在听...</text>
+                <text v-else class="call-status-dot">● 通话中</text>
+              </view>
+
               <!-- P51: PetBubble 组件 — 从宠物头顶弹出 -->
               <PetBubble
                 :text="petBubbleText"
                 :visible="petBubbleVisible"
                 @close="petBubbleVisible = false"
               />
-
-              <!-- 通话文字气泡 -->
-              <view v-if="isOnCall && (callPetText || callStatusText)" class="call-pet-bubble">
-                <text>{{ callPetText || callStatusText }}</text>
-              </view>
 
               <!-- 宠物本体 -->
               <PetAnimator
@@ -101,7 +104,35 @@
             </view>
 
             <!-- P57: 底部按钮栏 — 💬/📞/🍖 水平对齐 -->
-            <view v-if="!isOnCall" class="pet-bottom-bar">
+            <!-- P68: 通话中底部控制栏 -->
+            <view v-if="isOnCall" class="call-bottom-bar">
+              <!-- PTT 模式下的大按住说话按钮（挂断按钮上方） -->
+              <view
+                v-if="!isFullDuplex"
+                class="call-ptt-big-btn"
+                :class="{ 'call-ptt-big-btn--active': pttRecording }"
+                @touchstart.prevent="startPttRecord"
+                @touchend.prevent="stopPttRecord"
+                @touchcancel.prevent="cancelPttRecord"
+              >
+                <text class="call-ptt-big-icon">🎤</text>
+                <text class="call-ptt-big-label">{{ pttRecording ? '松开发送' : '按住说话' }}</text>
+              </view>
+
+              <!-- 模式切换 + 挂断：水平排列 -->
+              <view class="call-bottom-row">
+                <view class="call-mode-switch" @click="toggleRealtimeMode">
+                  <text class="call-mode-label">切换对话模式</text>
+                  <text class="call-mode-hint">{{ isFullDuplex ? '当前：自由通话' : '当前：按住说话' }}</text>
+                </view>
+
+                <view class="call-hangup-btn" @click="hangUp">
+                  <text class="call-hangup-icon">📞</text>
+                  <text class="call-hangup-text">挂断</text>
+                </view>
+              </view>
+            </view>
+            <view v-else class="pet-bottom-bar">
               <view class="pet-side-btn pet-side-btn--chat" @tap.stop="enterChat">
                 <text class="pet-side-icon">💬</text>
               </view>
@@ -113,32 +144,9 @@
               </view>
             </view>
 
-            <!-- 通话控件（在主页上叠加） -->
-            <view v-if="isOnCall" class="call-inline-area">
-              <!-- 通话操作区 -->
-              <view class="call-inline-controls">
-                <view 
-                  class="call-talk-btn"
-                  :class="{
-                    'call-talk-btn--active': callRecording,
-                    'call-talk-btn--disabled': callState === 'thinking' || callState === 'speaking'
-                  }"
-                  @touchstart.prevent="callState === 'listening' && startCallRecord()"
-                  @touchend.prevent="stopCallRecord"
-                  @touchcancel.prevent="cancelCallRecord"
-                >
-                  <text class="call-talk-icon">{{ callTalkIcon }}</text>
-                  <text class="call-talk-label">{{ callTalkLabel }}</text>
-                </view>
-                <view class="call-hangup-btn" @click="hangUp">
-                  <text class="call-hangup-icon">📞</text>
-                  <text class="call-hangup-text">挂断</text>
-                </view>
-              </view>
-            </view>
 
             <!-- 🔧 P51: 临时调试按钮（折叠） -->
-            <view class="debug-actions debug-actions--collapsed">
+            <view v-if="!isOnCall" class="debug-actions debug-actions--collapsed">
               <view class="debug-btn" @click="testBreathe">🫁 呼吸</view>
               <view class="debug-btn" @click="testHappy">🤚 抚摸</view>
               <view class="debug-btn" @click="testEating">🍖 喂食</view>
@@ -299,7 +307,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onHide } from '@dcloudio/uni-app'
 import { useChildStore } from '@/stores/child'
 import { api } from '@/services/api'
 import { copy } from '@/copy/onboarding'
@@ -491,14 +499,8 @@ const chatSpriteUrl = computed(() => {
   if (!pet.speciesId) return ''
   return getSpriteUrl(pet.speciesId, pet.stageKey, 'idle')
 })
-const callSpriteUrl = ref('')
-const callSpriteError = ref(false)
-
 function onChatSpriteError() {
   // chat 头像加载失败 → 自动回退 emoji（由 v-else 处理）
-}
-function onCallSpriteError() {
-  callSpriteError.value = true
 }
 
 // 隔离状态
@@ -631,6 +633,15 @@ onShow(() => {
   })
 })
 
+// P68: 页面隐藏时关闭通话连接
+onHide(() => {
+  if (isOnCall.value && wsConnection) {
+    try { wsConnection.close() } catch {}
+  }
+  stopMicrophone()
+  stopWsPing()
+})
+
 watch(() => store.currentChildId, (newChildId: string | null) => {
   if (newChildId) {
     loadPetAndHistory(newChildId)
@@ -666,12 +677,8 @@ const loadPetAndHistory = async (childId: string) => {
       currentPet.emotionKey = pet.emotionKey || 'idle'
       currentPet.spriteBaseUrl = (pet as any).spriteBaseUrl || ''
 
-      // 同步电话精灵图
-      callSpriteUrl.value = getSpriteUrl(currentPet.speciesId, currentPet.stageKey, 'idle')
-      callSpriteError.value = false
     } else {
       Object.assign(currentPet, createDefaultPet())
-      callSpriteUrl.value = ''
     }
 
     await loadGreeting(childId)
@@ -771,21 +778,31 @@ const onHomeTouchEnd = (e: any) => {
 }
 
 /* ================================================================
- * P20: 电话模式
+ * P68: 全双工实时语音通话
  * ================================================================ */
 const isOnCall = ref(false)
-const callState = ref<'listening' | 'thinking' | 'speaking'>('listening')
-const callChildId = ref('')
-const callBubbleText = ref('')
-const recognizedText = ref('')
-const callPetText = ref('')
+const isFullDuplex = ref(true)           // 是否全双工模式
+const callStatus = ref<string>('idle')    // idle | connecting | connected | listening | pet_speaking | error
+const callError = ref('')                 // 错误信息
+const callPetText = ref('')               // 通话中宠物所说的文字
 
-const callStatusText = computed(() => {
-  if (callBubbleText.value) return callBubbleText.value
-  if (callState.value === 'listening') return '🎤 正在听…'
-  if (callState.value === 'thinking') return '💭 正在思考…'
-  return '🔊 宠物正在说…'
-})
+// WebSocket 相关
+let wsConnection: any = null
+let wsPingTimer: ReturnType<typeof setInterval> | null = null
+let reconnectAttempts = 0
+const MAX_RECONNECT = 3
+
+// PCM 音频缓冲队列
+interface PcmQueueItem { data: ArrayBuffer; sampleRate: number }
+const pcmBufferQueue: PcmQueueItem[] = []
+let isPlayingPcm = false
+let pcmPlayer: any = null
+
+// 按住说话模式
+const pttRecording = ref(false)
+let pttRecorder: any = null
+let pttRecorderStartTime = 0
+
 function stopAllTTS() {
   audioQueue.value = []
   queueIndex = 0
@@ -802,196 +819,537 @@ function stopAllTTS() {
   playingAudio.value = null
 }
 
-const startPhoneCall = () => {
-  const child = store.childList[store.currentIndex]
-  if (!child) return
-  callChildId.value = child.id
-  isOnCall.value = true
-  recognizedText.value = ''
-  callPetText.value = ''
-  callState.value = 'speaking'
-  callSpriteError.value = false
+function stopAllAudio() {
+  // 停止所有 InnerAudioContext 实例
+  if (playingAudio.value) {
+    try { playingAudio.value.stop() } catch {}
+    try { playingAudio.value.destroy() } catch {}
+  }
+  // 停止 PCM 播放器
+  if (pcmPlayer) {
+    try { pcmPlayer.stop() } catch {}
+    try { pcmPlayer.destroy() } catch {}
+    pcmPlayer = null
+  }
+  pcmBufferQueue.length = 0
+  isPlayingPcm = false
+}
 
-  if (!playingAudio.value) {
-    playingAudio.value = uni.createInnerAudioContext({ useWebAudioImplement: true })
-    playingAudio.value.obeyMuteSwitch = false
+// ========== WebSocket 连接 ==========
+function connectWebSocket(token: string, childId: string) {
+  if (wsConnection) {
+    try { wsConnection.close() } catch {}
   }
 
-  const greetings = [
-    `喂？${child.nickname || '主人'}，你终于来啦！`,
-    `你来啦${child.nickname || '主人'}！我一直在等你呢！`,
-    `喂？${child.nickname || '主人'}，是你吗？好想你呀！`,
-  ]
-  const greeting = greetings[Math.floor(Math.random() * greetings.length)]
-  callBubbleText.value = greeting
+  const wsUrl = `wss://stage-api.lanyunke.com/api/v1/ai/realtime-call?token=${encodeURIComponent(token)}&childId=${encodeURIComponent(childId)}`
 
-  api.post<{ audioUrl: string }>('/ai/tts', { text: greeting }).then(r => {
-    const url = r.data?.audioUrl || ''
-    if (url && playingAudio.value) {
-      stopAllTTS()
-      playingAudio.value = uni.createInnerAudioContext({ useWebAudioImplement: true })
-      playingAudio.value.obeyMuteSwitch = false
-      playingAudio.value.src = url
-      playingAudio.value.onEnded(() => {
-        callState.value = 'listening'
-      })
-      playingAudio.value.onError(() => {
-        setTimeout(() => { callState.value = 'listening' }, 2000)
-      })
-      playingAudio.value.play()
-    } else {
-      setTimeout(() => { callState.value = 'listening' }, 2000)
-    }
-  }).catch(() => {
-    setTimeout(() => { callState.value = 'listening' }, 2000)
-  })
-}
+  // 🔍 诊断日志
+  console.log('[P68] Connecting WebSocket:', wsUrl.replace(token, 'TOKEN_HIDDEN'))
+  callError.value = ''
 
-const callTalkLabel = computed(() => {
-  if (callRecording.value) return '松开发送'
-  if (callState.value === 'thinking' || callState.value === 'speaking') return '等宠物说完…'
-  return '按住说话'
-})
-const callTalkIcon = computed(() => {
-  if (callRecording.value) return '🎤'
-  if (callState.value === 'thinking' || callState.value === 'speaking') return '🔇'
-  return '🎙️'
-})
-
-const callRecording = ref(false)
-const callRecorder = ref<any>(null)
-
-function startCallRecord() {
-  if (!isOnCall.value || callState.value !== 'listening') return
-  stopAllTTS()
-  recognizedText.value = ''
-  callRecording.value = true
-  const recorder = uni.getRecorderManager()
-  callRecorder.value = recorder
-  recorder.onStop((res: any) => {
-    callRecording.value = false
-    if (res.tempFilePath && res.duration >= 800 && isOnCall.value) {
-      processCallVoice(callChildId.value, res.tempFilePath)
-    } else if (res.duration < 800 && isOnCall.value) {
-      uni.showToast({ title: '说话时间太短了哦~', icon: 'none', duration: 1500 })
+  wsConnection = uni.connectSocket({
+    url: wsUrl,
+    header: {
+      'content-type': 'application/json'
+    },
+    success: () => {
+      console.log('[P68] uni.connectSocket success')
+    },
+    fail: (err: any) => {
+      console.error('[P68] uni.connectSocket fail:', JSON.stringify(err))
+      handleWsError('连接失败: ' + (err.errMsg || '未知错误'))
     }
   })
-  recorder.onError(() => {
-    callRecording.value = false
-    if (!isOnCall.value) return
-    uni.showToast({ title: '录音失败，请重试', icon: 'none' })
+
+  wsConnection.onOpen(() => {
+    console.log('[P68] WebSocket onOpen')
+    reconnectAttempts = 0
+    callStatus.value = 'connected'
+    startWsPing()
+    if (isFullDuplex.value) {
+      startMicrophone()
+    }
   })
-  recorder.start({ format: 'mp3', duration: 60000 })
-}
 
-function stopCallRecord() {
-  if (!callRecording.value) return
-  try { callRecorder.value?.stop() } catch {}
-}
-
-function cancelCallRecord() {
-  callRecording.value = false
-  try { callRecorder.value?.stop() } catch {}
-}
-
-async function processCallVoice(childId: string, filePath: string) {
-  if (!isOnCall.value || callChildId.value !== childId) return
-  callState.value = 'thinking'
-  callBubbleText.value = '💭 正在思考…'
-
-  try {
-    const res = await api.upload<{ text: string; transcribedText: string; segments: Array<{text:string;audioUrl:string}>; latencyMs: number }>('/ai/voice-chat-groq', filePath, { childId })
-    const result = res.data
-    const reply = result?.text || '嗯…信号不太好，你再说一遍？'
-    const petReply = result?.text || ''
-    callPetText.value = petReply
-    const segments = result?.segments || []
-    callState.value = 'speaking'
-
-    if (segments.length > 0) {
-      playStreamSegments(segments)
-    } else {
-      playStreamTTSForReply(reply)
-    }
-    if (!chatCache[childId]) chatCache[childId] = []
-    chatCache[childId] = [...chatCache[childId], { role: 'user_call', content: userText || '🎤 语音' }]
-    chatCache[childId] = [...chatCache[childId], { role: 'pet_call', content: reply }]
-    callBubbleText.value = reply
-    const checkDone = setInterval(() => {
-      if (!queuePlaying && audioQueue.value.length === 0) {
-        clearInterval(checkDone)
-        callState.value = 'listening'
-      }
-    }, 200)
-  } catch {
-    // 如果 AI 文字已经显示出来了（API TTS 段可能为空但文字已成功返回），不要覆盖
-    if (!callPetText.value) {
-      const fallbackText = '主人，信号不太好，我们待会儿再聊吧'
-      callBubbleText.value = fallbackText
-      if (!chatCache[childId]) chatCache[childId] = []
-      chatCache[childId] = [...chatCache[childId], { role: 'pet_call', content: fallbackText }]
-      api.post<{ audioUrl: string }>('/ai/tts', { text: fallbackText }).then(r => {
-        const url = r.data?.audioUrl || ''
-        if (url) {
-          stopAllTTS()
-          const a = uni.createInnerAudioContext({ useWebAudioImplement: true })
-          a.obeyMuteSwitch = false; a.src = url
-          a.onEnded(() => { callState.value = 'listening' })
-          a.onError(() => { callState.value = 'listening' })
-          a.play()
-        } else { callState.value = 'listening' }
-      }).catch(() => { callState.value = 'listening' })
-    } else {
-      // AI 文字已显示，静默恢复 listening
-      callState.value = 'listening'
-    }
-  }
-}
-
-function playStreamTTSForReply(text: string) {
-  if (!text) { callState.value = 'listening'; return }
-  stopAllTTS()
-  api.post<{ segments: Array<{ text: string; audioUrl: string }> }>('/ai/tts-stream', { text }).then(ttsRes => {
-    const segs = ttsRes.data?.segments || []
-    if (segs.length === 0) {
-      api.post<{ audioUrl: string }>('/ai/tts', { text }).then(r => {
-        const url = r.data?.audioUrl || ''
-        if (url) {
-          stopAllTTS()
-          const a = uni.createInnerAudioContext({ useWebAudioImplement: true })
-          a.obeyMuteSwitch = false; a.src = url
-          a.onEnded(() => { callState.value = 'listening' })
-          a.onError(() => { callState.value = 'listening' })
-          a.play()
-        } else { callState.value = 'listening' }
-      }).catch(() => { callState.value = 'listening' })
+  wsConnection.onMessage((res: any) => {
+    if (res.data instanceof ArrayBuffer) {
+      handlePcmAudio(res.data)
       return
     }
-    audioQueue.value = segs.map(s => s.audioUrl)
-    queuePlaying = false
-    playNextInQueue()
-    const checkDone = setInterval(() => {
-      if (!queuePlaying && audioQueue.value.length === 0) {
-        clearInterval(checkDone)
-        callState.value = 'listening'
-      }
-    }, 200)
-  }).catch(() => { callState.value = 'listening' })
+    let data: any
+    try { data = JSON.parse(res.data) } catch { return }
+
+    switch (data.type) {
+      case 'call_connected':
+        callPetText.value = data.text || data.message || '喂？听到你啦！'
+        callStatus.value = 'pet_speaking'
+        if (data.audio) handleBase64Pcm(data.audio)
+        break
+      case 'pet_speaking':
+        callPetText.value = data.text || ''
+        callStatus.value = 'pet_speaking'
+        break
+      case 'pet_silent':
+        callStatus.value = 'listening'
+        break
+      case 'listening':
+        callStatus.value = 'listening'
+        break
+      case 'stop_audio':
+        stopAllTTS()
+        stopAllAudio()
+        pcmBufferQueue.length = 0
+        isPlayingPcm = false
+        break
+      case 'audio_data':
+      case 'audio_response':
+        callStatus.value = 'pet_speaking'
+        // 兼容 mimeType 和 mime_type 两种字段名
+        const mt = data.mimeType || data.mime_type || 'audio/pcm'
+        handleBase64Pcm(data.data, mt)
+        break
+      case 'error':
+        callError.value = data.message || '通话异常'
+        break
+      case 'fallback_mode':
+        isFullDuplex.value = false
+        uni.showToast({ title: '已切换到按住说话模式', icon: 'none' })
+        break
+      case 'call_ended':
+        break
+    }
+  })
+
+  wsConnection.onClose((res: any) => {
+    console.log('[P68] WebSocket onClose, code:', res?.code, 'reason:', res?.reason)
+    stopWsPing()
+    if (isOnCall.value && reconnectAttempts < MAX_RECONNECT) {
+      reconnectAttempts++
+      console.log('[P68] Reconnecting... attempt', reconnectAttempts)
+      setTimeout(() => connectWebSocket(token, childId), 1000)
+    }
+  })
+
+  wsConnection.onError((err: any) => {
+    console.error('[P68] WebSocket onError:', JSON.stringify(err))
+    handleWsError('WebSocket 连接错误')
+  })
 }
 
-const hangUp = () => {
-  isOnCall.value = false
-  recognizedText.value = ''
-  callPetText.value = ''
-  stopAllTTS()
-  callRecording.value = false
-  try { callRecorder.value?.stop() } catch {}
-  if (recorderMap[callChildId.value]) {
-    try { recorderMap[callChildId.value].stop() } catch {}
+// ========== 麦克风管理 ==========
+let micRecorder: any = null
+
+function startMicrophone() {
+  micRecorder = uni.getRecorderManager()
+
+  micRecorder.onFrameRecorded((res: any) => {
+    if (wsConnection && callStatus.value !== 'pet_speaking') {
+      callStatus.value = 'listening'
+    }
+    if (wsConnection) {
+      wsConnection.send({
+        data: res.frameBuffer,
+        success: () => {},
+        fail: () => handleWsError('发送音频失败')
+      })
+    }
+  })
+
+  micRecorder.onStart(() => {})
+  micRecorder.onStop(() => {})
+  micRecorder.onError(() => { handleWsError('麦克风错误') })
+
+  micRecorder.start({
+    duration: 60000,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    encodeBitRate: 48000,
+    format: 'pcm',
+    frameSize: 10
+  })
+}
+
+function stopMicrophone() {
+  if (micRecorder) {
+    try { micRecorder.stop() } catch {}
+    micRecorder = null
   }
-  recordingMap[callChildId.value] = false
-  if (callChildId.value) {
-    api.post('/ai/chat', { message: '通话已结束。', childId: callChildId.value }).catch(() => {})
+}
+
+// ========== PCM 音频播放 ==========
+function handlePcmAudio(pcmData: ArrayBuffer, sampleRate: number = 24000) {
+  pcmBufferQueue.push({ data: pcmData, sampleRate })
+  if (!isPlayingPcm) playNextPcm()
+}
+
+function handleBase64Pcm(base64Data: string, mimeType: string = 'audio/pcm') {
+  try {
+    // 从 mimeType 中提取采样率
+    let sampleRate = 24000
+    if (mimeType.includes('16000')) sampleRate = 16000
+    
+    const binaryStr = (uni as any).base64ToArrayBuffer
+      ? (uni as any).base64ToArrayBuffer(base64Data)
+      : base64ToArrayBuffer(base64Data)
+    handlePcmAudio(binaryStr, sampleRate)
+  } catch {
+    // 解码失败忽略
+  }
+}
+
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binaryStr = atob ? atob(base64) : decodeBase64(base64)
+  const bytes = new Uint8Array(binaryStr.length)
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i)
+  }
+  return bytes.buffer
+}
+
+function decodeBase64(input: string): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='
+  let output = ''
+  let i = 0
+  input = input.replace(/[^A-Za-z0-9+/=]/g, '')
+  while (i < input.length) {
+    const e1 = chars.indexOf(input.charAt(i++))
+    const e2 = chars.indexOf(input.charAt(i++))
+    const e3 = chars.indexOf(input.charAt(i++))
+    const e4 = chars.indexOf(input.charAt(i++))
+    output += String.fromCharCode((e1 << 2) | (e2 >> 4))
+    if (e3 !== 64) output += String.fromCharCode(((e2 & 15) << 4) | (e3 >> 2))
+    if (e4 !== 64) output += String.fromCharCode(((e3 & 3) << 6) | e4)
+  }
+  return output
+}
+
+function playNextPcm() {
+  if (pcmBufferQueue.length === 0) {
+    isPlayingPcm = false
+    return
+  }
+  isPlayingPcm = true
+  const item = pcmBufferQueue.shift()!
+
+  // PCM 16bit, mono → WAV 后播放（采样率从 mimeType 推断）
+  const sampleRate = item.sampleRate || 24000
+  const numChannels = 1
+  const bitsPerSample = 16
+  const wavBuffer = pcmToWav(item.data, sampleRate, numChannels, bitsPerSample)
+
+  const fs = uni.getFileSystemManager()
+  const filePath = `${wx.env.USER_DATA_PATH}/pcm_${Date.now()}.wav`
+
+  fs.writeFile({
+    filePath,
+    data: wavBuffer,
+    success: () => {
+      const audio = uni.createInnerAudioContext({ useWebAudioImplement: true })
+      audio.obeyMuteSwitch = false
+      audio.src = filePath
+      audio.autoplay = true
+      audio.onEnded(() => {
+        audio.destroy()
+        try { fs.unlinkSync(filePath) } catch {}
+        playNextPcm()
+      })
+      audio.onError(() => {
+        audio.destroy()
+        playNextPcm()
+      })
+    },
+    fail: () => playNextPcm()
+  })
+}
+
+// PCM → WAV 转换
+function pcmToWav(pcmData: ArrayBuffer, sampleRate: number, numChannels: number, bitsPerSample: number): ArrayBuffer {
+  const dataLength = pcmData.byteLength
+  const headerLength = 44
+  const totalLength = headerLength + dataLength
+  const buffer = new ArrayBuffer(totalLength)
+  const view = new DataView(buffer)
+
+  writeString(view, 0, 'RIFF')
+  view.setUint32(4, totalLength - 8, true)
+  writeString(view, 8, 'WAVE')
+  writeString(view, 12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, numChannels, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * numChannels * bitsPerSample / 8, true)
+  view.setUint16(32, numChannels * bitsPerSample / 8, true)
+  view.setUint16(34, bitsPerSample, true)
+  writeString(view, 36, 'data')
+  view.setUint32(40, dataLength, true)
+
+  new Uint8Array(buffer, headerLength).set(new Uint8Array(pcmData))
+  return buffer
+}
+
+function writeString(view: DataView, offset: number, str: string) {
+  for (let i = 0; i < str.length; i++) {
+    view.setUint8(offset + i, str.charCodeAt(i))
+  }
+}
+
+// ========== 通话生命周期 ==========
+function startPhoneCall() {
+  console.log('[P68] startPhoneCall called')
+  if (isOnCall.value) {
+    console.log('[P68] Already on call, ignoring')
+    return
+  }
+
+  stopAllTTS()
+  stopAllAudio()
+
+  isOnCall.value = true
+  isFullDuplex.value = true
+  callStatus.value = 'connecting'
+  callError.value = ''
+  callPetText.value = ''
+  pcmBufferQueue.length = 0
+  isPlayingPcm = false
+
+  const token = uni.getStorageSync('token')
+  const childId = currentChild?.value?.id || ''
+
+  console.log('[P68] Token exists:', !!token, 'ChildId:', childId)
+
+  if (!token) {
+    callError.value = '未登录，请先登录'
+    callStatus.value = 'error'
+    return
+  }
+
+  connectWebSocket(token, childId)
+}
+
+function hangUp() {
+  // 关闭 WebSocket
+  if (wsConnection) {
+    try { wsConnection.send({ data: JSON.stringify({ type: 'hangup' }) }) } catch {}
+    try { wsConnection.close() } catch {}
+    wsConnection = null
+  }
+
+  stopMicrophone()
+  stopWsPing()
+  stopAllTTS()
+  stopAllAudio()
+  pcmBufferQueue.length = 0
+  isPlayingPcm = false
+  reconnectAttempts = 0
+
+  isOnCall.value = false
+  isFullDuplex.value = true
+  callStatus.value = 'idle'
+  callError.value = ''
+  callPetText.value = ''
+
+  // 清理 PCM 临时文件
+  const fs = uni.getFileSystemManager()
+  try {
+    fs.readdir({
+      dirPath: wx.env.USER_DATA_PATH,
+      success: (res: any) => {
+        const files = res.files || []
+        files.forEach((f: any) => {
+          const name = typeof f === 'string' ? f : f.filePath || ''
+          if (name.includes('pcm_') || name.endsWith('.wav')) {
+            try { fs.unlinkSync(name.startsWith('/') ? name : `${wx.env.USER_DATA_PATH}/${name}`) } catch {}
+          }
+        })
+      }
+    })
+  } catch {}
+}
+
+// ========== 全双工/按住说切换 ==========
+function toggleRealtimeMode() {
+  if (isFullDuplex.value) {
+    isFullDuplex.value = false
+    stopMicrophone()
+    callStatus.value = 'connected'
+    if (wsConnection) {
+      wsConnection.send({ data: JSON.stringify({ type: 'mode_switch', mode: 'ptt' }) })
+    }
+  } else {
+    isFullDuplex.value = true
+    startMicrophone()
+    if (wsConnection) {
+      wsConnection.send({ data: JSON.stringify({ type: 'mode_switch', mode: 'full_duplex' }) })
+    }
+  }
+}
+
+// ========== 按住说话模式录音（使用 HTTP voice-chat API）==========
+function startPttRecord() {
+  pttRecording.value = true
+  pttRecorder = uni.getRecorderManager()
+  pttRecorderStartTime = Date.now()
+
+  pttRecorder.onStop(async (res: any) => {
+    const duration = Date.now() - pttRecorderStartTime
+    if (duration < 800) {
+      pttRecording.value = false
+      uni.showToast({ title: '说话太短了', icon: 'none' })
+      return
+    }
+
+    pttRecording.value = false
+    callStatus.value = 'pet_speaking'
+
+    try {
+      const childId = currentChild?.value?.id || ''
+      await sendVoiceToHttp(res.tempFilePath, childId)
+    } catch (e: any) {
+      console.error('[P68] PTT voice chat error:', e)
+      callStatus.value = 'listening'
+      uni.showToast({ title: '语音识别失败，请重试', icon: 'none' })
+    }
+  })
+
+  pttRecorder.onError(() => {
+    pttRecording.value = false
+    uni.showToast({ title: '录音失败', icon: 'none' })
+  })
+
+  pttRecorder.start({
+    format: 'mp3',
+    duration: 60000,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    encodeBitRate: 48000
+  })
+}
+
+async function sendVoiceToHttp(filePath: string, childId: string) {
+  const token = uni.getStorageSync('token')
+  const API_BASE_URL = 'https://stage-api.lanyunke.com/api/v1'
+
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: `${API_BASE_URL}/ai/voice-chat-groq`,
+      filePath: filePath,
+      name: 'audio',
+      formData: { childId: childId || '' },
+      header: {
+        'Authorization': `Bearer ${token}`
+      },
+      success: (res: any) => {
+        try {
+          const data = JSON.parse(res.data)
+          // data = { text: "AI回复", transcribedText: "用户说了什么", segments: [{text, audioUrl}] }
+
+          callPetText.value = data.text || ''
+
+          // 播放 TTS 音频（edge-tts 生成的 MP3）
+          if (data.segments && data.segments.length > 0) {
+            playPttSegments(data.segments)
+          } else if (data.audioUrl) {
+            playAudioUrl(data.audioUrl, () => {
+              callStatus.value = 'listening'
+            })
+          } else {
+            callStatus.value = 'listening'
+          }
+
+          resolve(data)
+        } catch (e) {
+          reject(new Error('解析语音回复失败'))
+        }
+      },
+      fail: (err: any) => {
+        reject(err)
+      }
+    })
+  })
+}
+
+function stopPttRecord() {
+  if (pttRecorder) {
+    try { pttRecorder.stop() } catch {}
+  }
+}
+
+function cancelPttRecord() {
+  pttRecording.value = false
+  if (pttRecorder) {
+    try { pttRecorder.stop() } catch {}
+    pttRecorder = null
+  }
+}
+
+// 播放单个音频 URL
+function playAudioUrl(url: string, onEnd?: () => void) {
+  const audio = uni.createInnerAudioContext()
+  audio.src = url
+  audio.autoplay = true
+  audio.onEnded(() => {
+    audio.destroy()
+    onEnd?.()
+  })
+  audio.onError(() => {
+    audio.destroy()
+    onEnd?.()
+  })
+}
+
+// 播放流式分段 TTS
+function playPttSegments(segments: Array<{text: string, audioUrl: string}>) {
+  let idx = 0
+  const playNext = () => {
+    if (idx >= segments.length) {
+      callStatus.value = 'listening'
+      return
+    }
+    const seg = segments[idx++]
+    callPetText.value = seg.text
+    const audio = uni.createInnerAudioContext()
+    audio.src = seg.audioUrl
+    audio.autoplay = true
+    audio.onEnded(() => {
+      audio.destroy()
+      playNext()
+    })
+    audio.onError(() => {
+      audio.destroy()
+      playNext()
+    })
+  }
+  playNext()
+}
+
+// ========== 辅助 ==========
+function handleWsError(msg: string) {
+  callError.value = msg
+  callStatus.value = 'error'
+  setTimeout(() => {
+    if (callStatus.value === 'error') {
+      isFullDuplex.value = false
+      callStatus.value = 'connected'
+      callError.value = ''
+      uni.showToast({ title: '已切换到按住说话模式', icon: 'none' })
+    }
+  }, 3000)
+}
+
+function startWsPing() {
+  stopWsPing()
+  wsPingTimer = setInterval(() => {
+    if (wsConnection) {
+      wsConnection.send({ data: JSON.stringify({ type: 'ping' }) })
+    }
+  }, 15000)
+}
+
+function stopWsPing() {
+  if (wsPingTimer) {
+    clearInterval(wsPingTimer)
+    wsPingTimer = null
   }
 }
 
@@ -1443,23 +1801,134 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 .back-btn { width:56rpx; height:56rpx; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .back-arrow { font-size:36rpx; color:#5B3E96; font-weight:bold; }
 
-/* 电话覆盖层 — 在宠物主页上叠加 */
-.call-inline-area {
+/* P68: 通话底部控制栏 — 垂直排列，PTT在上，挂断/切换在下 */
+.call-bottom-bar {
   position: absolute;
-  bottom: 0;
+  bottom: 60rpx;
   left: 0;
   right: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20rpx;
-  padding: 20rpx;
-  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
-  z-index: 100;
-  pointer-events: none;
+  gap: 30rpx;
+  padding: 20rpx 40rpx;
+  z-index: 10;
 }
 
-.call-pet-bubble,
+/* 模式切换 + 挂断：水平排列 */
+.call-bottom-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 30rpx;
+}
+
+/* 切换对话模式 — 毛玻璃效果 */
+.call-mode-switch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+  padding: 12rpx 24rpx;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 24rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.25);
+}
+.call-mode-switch .call-mode-label {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+.call-mode-switch .call-mode-hint {
+  font-size: 18rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 挂断按钮 — 毛玻璃效果 */
+.call-hangup-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  width: 140rpx;
+  height: 70rpx;
+  background: rgba(255, 59, 48, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 35rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+}
+.call-hangup-btn .call-hangup-icon {
+  font-size: 30rpx;
+  transform: rotate(135deg);
+}
+.call-hangup-btn .call-hangup-text {
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+/* PTT 大按钮 — 正常流式布局，毛玻璃效果 */
+.call-ptt-big-btn {
+  width: 220rpx;
+  height: 220rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.2);
+}
+.call-ptt-big-btn .call-ptt-big-icon { font-size: 56rpx; }
+.call-ptt-big-btn .call-ptt-big-label {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 26rpx;
+  font-weight: 500;
+}
+.call-ptt-big-btn--active {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 30rpx rgba(255, 255, 255, 0.15);
+  animation: ptPulse 1s ease-in-out infinite;
+}
+.call-ptt-big-btn--active .call-ptt-big-label { color: #fff; }
+
+@keyframes ptPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    opacity: 0.9;
+  }
+  50% {
+    box-shadow: 0 0 30rpx 8rpx rgba(255, 255, 255, 0.15);
+    opacity: 1;
+  }
+}
+
+/* 通话状态指示器（宠物上方） */
+.call-status-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10rpx;
+}
+.call-status-indicator .call-status-dot {
+  font-size: 24rpx;
+  color: rgba(255,255,255,0.8);
+  background: rgba(0,0,0,0.3);
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+}
+.call-status-indicator .call-status-dot--connecting { color: #FFD700; }
+.call-status-indicator .call-status-dot--speaking { color: #87CEEB; }
+.call-status-indicator .call-status-dot--listening { color: #90EE90; }
+
+/* 问候气泡（保留，与通话无关） */
 .greeting-bubble {
   position: absolute;
   top: -80rpx;
@@ -1477,91 +1946,11 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   white-space: normal;
   word-break: break-all;
 }
-
-.call-pet-bubble text,
 .greeting-bubble text {
   font-size: 30rpx;
   color: #fff;
   line-height: 44rpx;
   font-weight: 500;
-}
-
-.call-inline-controls {
-  display: flex;
-  align-items: center;
-  gap: 32rpx;
-  pointer-events: auto;
-}
-
-.call-talk-btn {
-  width: 260rpx;
-  height: 260rpx;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #6366F1, #818CF8);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12rpx;
-  box-shadow: 0 8rpx 30rpx rgba(99,102,241,0.4);
-  transition: transform 0.1s;
-}
-
-.call-talk-btn:active {
-  transform: scale(0.93);
-}
-
-.call-talk-btn--active {
-  background: linear-gradient(135deg, #FF4444, #FF6B6B);
-  box-shadow: 0 8rpx 30rpx rgba(255,68,68,0.4);
-  animation: call-pulse 1.2s ease-in-out infinite;
-}
-
-.call-talk-btn--disabled {
-  background: #ccc;
-  box-shadow: none;
-  pointer-events: none;
-}
-
-@keyframes call-pulse {
-  0%, 100% { box-shadow: 0 8rpx 30rpx rgba(255,68,68,0.4); }
-  50% { box-shadow: 0 8rpx 50rpx rgba(255,68,68,0.7); }
-}
-
-.call-talk-icon {
-  font-size: 56rpx;
-}
-
-.call-talk-label {
-  font-size: 26rpx;
-  color: #fff;
-  font-weight: bold;
-}
-
-.call-hangup-btn {
-  width: 110rpx;
-  height: 110rpx;
-  border-radius: 50%;
-  background: #FF4444;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8rpx 30rpx rgba(255,68,68,0.4);
-}
-
-.call-hangup-btn:active {
-  transform: scale(0.92);
-}
-
-.call-hangup-icon {
-  font-size: 44rpx;
-}
-
-.call-hangup-text {
-  font-size: 20rpx;
-  color: #fff;
-  margin-top: 2rpx;
 }
 
 /* P50: 3D 游戏按钮 — 玻璃质感 + 弹性反馈 */
