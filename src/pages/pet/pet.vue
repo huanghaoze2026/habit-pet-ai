@@ -307,7 +307,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue'
-import { onShow, onHide } from '@dcloudio/uni-app'
+import { onShow, onHide, onUnload } from '@dcloudio/uni-app'
 import { useChildStore } from '@/stores/child'
 import { api } from '@/services/api'
 import { copy } from '@/copy/onboarding'
@@ -633,13 +633,18 @@ onShow(() => {
   })
 })
 
-// P68: 页面隐藏时关闭通话连接
+// P68-修复2: 页面隐藏时关闭通话连接
 onHide(() => {
-  if (isOnCall.value && wsConnection) {
-    try { wsConnection.close() } catch {}
+  if (isOnCall.value) {
+    console.log('[P68] Page hide — closing call')
+    hangUp()
   }
+})
+
+// P68-修复2: 页面卸载时清理
+onUnload(() => {
+  hangUp()
   stopMicrophone()
-  stopWsPing()
 })
 
 watch(() => store.currentChildId, (newChildId: string | null) => {
@@ -923,10 +928,17 @@ function connectWebSocket(token: string, childId: string) {
   wsConnection.onClose((res: any) => {
     console.log('[P68] WebSocket onClose, code:', res?.code, 'reason:', res?.reason)
     stopWsPing()
-    if (isOnCall.value && reconnectAttempts < MAX_RECONNECT) {
+    
+    // 如果还在通话状态且不是主动挂断，尝试重连
+    if (isOnCall.value && reconnectAttempts < MAX_RECONNECT && res?.code !== 1000) {
       reconnectAttempts++
       console.log('[P68] Reconnecting... attempt', reconnectAttempts)
-      setTimeout(() => connectWebSocket(token, childId), 1000)
+      // 获取 token
+      const token = uni.getStorageSync('habitpet_token') || uni.getStorageSync('token')
+      const childId = currentChild?.value?.id || ''
+      setTimeout(() => {
+        if (isOnCall.value) connectWebSocket(token, childId)
+      }, 1000)
     }
   })
 
@@ -1129,38 +1141,47 @@ function startPhoneCall() {
 }
 
 function hangUp() {
-  // 关闭 WebSocket
+  // P68-修复2: 主动关闭 WebSocket
   if (wsConnection) {
-    try { wsConnection.send({ data: JSON.stringify({ type: 'hangup' }) }) } catch {}
-    try { wsConnection.close() } catch {}
+    try { 
+      wsConnection.send({ data: JSON.stringify({ type: 'hangup' }) }) 
+    } catch {}
+    
+    try { uni.closeSocket({ code: 1000, reason: 'User hang up' }) } catch {}
+    
     wsConnection = null
   }
-
+  
+  // 关闭麦克风
   stopMicrophone()
+  
+  // 取消重连
+  reconnectAttempts = MAX_RECONNECT + 1
   stopWsPing()
+  
+  // 停止音频
   stopAllTTS()
   stopAllAudio()
   pcmBufferQueue.length = 0
   isPlayingPcm = false
-  reconnectAttempts = 0
-
+  
+  // 重置状态
   isOnCall.value = false
   isFullDuplex.value = true
   callStatus.value = 'idle'
   callError.value = ''
   callPetText.value = ''
-
+  
   // 清理 PCM 临时文件
-  const fs = uni.getFileSystemManager()
   try {
+    const fs = uni.getFileSystemManager()
     fs.readdir({
       dirPath: wx.env.USER_DATA_PATH,
       success: (res: any) => {
-        const files = res.files || []
-        files.forEach((f: any) => {
-          const name = typeof f === 'string' ? f : f.filePath || ''
+        (res.files || []).forEach((f: any) => {
+          const name = f.filePath || f
           if (name.includes('pcm_') || name.endsWith('.wav')) {
-            try { fs.unlinkSync(name.startsWith('/') ? name : `${wx.env.USER_DATA_PATH}/${name}`) } catch {}
+            try { fs.unlinkSync(name) } catch {}
           }
         })
       }
