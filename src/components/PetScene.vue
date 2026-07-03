@@ -72,10 +72,11 @@ const SCENE_CDN = 'https://stage-api.lanyunke.com/uploads/scenes'
 const SCENE_V = '20260629180000' // P63: 火龙犬白天背景更新 + 场景简化
 
 const sceneImageUrl = computed(() => {
-  const sid = props.speciesId
+  // P68 防御：props 可能尚未初始化
+  const sid = props?.speciesId
   if (!sid) return ''
   // P60: 悲伤心情时使用专属全屏背景（scenes/{species}/sad.png）
-  const m = props.mood ?? 50
+  const m = props?.mood ?? 50
   if (m < 40) return `${SCENE_CDN}/${sid}/sad.png?v=${SCENE_V}`
   return `${SCENE_CDN}/${sid}/${sceneTimeKey.value}.png?v=${SCENE_V}`
 })
@@ -88,7 +89,8 @@ function onSceneImageError() {
 }
 
 // P63: 物种、时间或心情变化时重置加载状态
-watch([() => props.speciesId, sceneTimeKey, () => props.mood], () => {
+// P68 防御：使用可选链避免 props 未初始化时报错
+watch([() => props?.speciesId, sceneTimeKey, () => props?.mood], () => {
   sceneImageError.value = false
 })
 
@@ -103,7 +105,7 @@ const props = defineProps<{
 }>()
 
 const sceneMoodClass = computed(() => {
-  const m = props.mood ?? 50
+  const m = props?.mood ?? 50
   if (m >= 80) return 'scene--mood-happy'
   if (m >= 40) return 'scene--mood-normal'
   return 'scene--mood-sad'
