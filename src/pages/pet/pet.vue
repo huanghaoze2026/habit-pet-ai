@@ -1,6 +1,6 @@
 <template>
   <view class="page-pet">
-    <!-- P55: 全屏模式 — 标题浮在信号栏下方，背景覆盖全屏 -->
+    <!-- P55: 全屏模式 - 标题浮在信号栏下方,背景覆盖全屏 -->
     <view class="pet-top-bar" :style="{ paddingTop: (statusBarH || 20) + 'px' }">
       <view class="pet-top-row">
         <view class="pet-back" @click="goBack"><text>←</text></view>
@@ -18,7 +18,7 @@
       @action="goAddChild"
     />
 
-    <!-- 当前孩子宠物（无滑动切换） -->
+    <!-- 当前孩子宠物(无滑动切换) -->
     <view
       v-else
       class="pet-view"
@@ -29,7 +29,7 @@
           v-if="petsByChild[currentChild.id] === null"
           icon="🥚"
           title="还没有宠物哦"
-          subtitle="请先选择一只宠物，开始和TA互动吧！"
+          subtitle="请先选择一只宠物,开始和TA互动吧!"
           button-text="去选择宠物"
           @action="goSelectPet"
         />
@@ -44,7 +44,7 @@
             @touchstart="onHomeTouchStart"
             @touchend="onHomeTouchEnd"
           >
-            <!-- P51: 宠物主体区域 — 绝对定位，偏上留出地面空间 -->
+            <!-- P51: 宠物主体区域 - 绝对定位,偏上留出地面空间 -->
             <!-- P54: 点击宠物触发抚摸交互 -->
             <!-- P57: 进化中增加特效容器 -->
             <view :class="['pet-layer-area', 'pet-layer-area--' + currentPet.stageKey, { 'pet-layer-area--evolving': animationState === 'evolution' }]" @tap="handlePetTap">
@@ -57,10 +57,10 @@
                 <!-- 脉冲光环 -->
                 <view class="evo-pulse-ring" />
                 <view class="evo-pulse-ring evo-pulse-ring--delay" />
-                <!-- P50: 进化中文字提示（黑色半透明遮罩背景 + 粒子特效） -->
+                <!-- P50: 进化中文字提示(黑色半透明遮罩背景 + 粒子特效) -->
                 <view class="evo-evolving-text">
                   <text class="evo-evolving-label">宠物进化中...</text>
-                  <text class="evo-evolving-hint">正在蜕变，请稍候</text>
+                  <text class="evo-evolving-hint">正在蜕变,请稍候</text>
                 </view>
               </view>
               <!-- 问候气泡 -->
@@ -68,7 +68,7 @@
                 <text>{{ greetingText }}</text>
               </view>
 
-              <!-- P68: 通话状态指示（宠物上方） -->
+              <!-- P68: 通话状态指示(宠物上方) -->
               <view v-if="isOnCall" class="call-status-indicator">
                 <text v-if="callStatus === 'connecting'" class="call-status-dot call-status-dot--connecting">● 正在接通...</text>
                 <text v-else-if="callStatus === 'pet_speaking'" class="call-status-dot call-status-dot--speaking">● 宠物正在说...</text>
@@ -76,7 +76,7 @@
                 <text v-else class="call-status-dot">● 通话中</text>
               </view>
 
-              <!-- P51: PetBubble 组件 — 从宠物头顶弹出 -->
+              <!-- P51: PetBubble 组件 - 从宠物头顶弹出 -->
               <PetBubble
                 :text="petBubbleText"
                 :visible="petBubbleVisible"
@@ -92,7 +92,7 @@
               </PetAnimator>
             </view>
 
-            <!-- P55: 状态卡 → 右上角，稍大玻璃卡片 -->
+            <!-- P55: 状态卡 → 右上角,稍大玻璃卡片 -->
             <view class="pet-status-top-right">
               <PetStatusCard
                 :level="currentPet.level"
@@ -103,10 +103,10 @@
               />
             </view>
 
-            <!-- P57: 底部按钮栏 — 💬/📞/🍖 水平对齐 -->
+            <!-- P57: 底部按钮栏 - 💬/📞/🍖 水平对齐 -->
             <!-- P68: 通话中底部控制栏 -->
             <view v-if="isOnCall" class="call-bottom-bar">
-              <!-- PTT 模式下的大按住说话按钮（挂断按钮上方） -->
+              <!-- PTT 模式下的大按住说话按钮(挂断按钮上方) -->
               <view
                 v-if="!isFullDuplex"
                 class="call-ptt-big-btn"
@@ -119,11 +119,11 @@
                 <text class="call-ptt-big-label">{{ pttRecording ? '松开发送' : '按住说话' }}</text>
               </view>
 
-              <!-- 模式切换 + 挂断：水平排列 -->
+              <!-- 模式切换 + 挂断:水平排列 -->
               <view class="call-bottom-row">
                 <view class="call-mode-switch" @click="toggleRealtimeMode">
                   <text class="call-mode-label">切换对话模式</text>
-                  <text class="call-mode-hint">{{ isFullDuplex ? '当前：自由通话' : '当前：按住说话' }}</text>
+                  <text class="call-mode-hint">{{ isFullDuplex ? '当前:自由通话' : '当前:按住说话' }}</text>
                 </view>
 
                 <view class="call-hangup-btn" @click="hangUp">
@@ -145,7 +145,7 @@
             </view>
 
 
-            <!-- 🔧 P51: 临时调试按钮（折叠） -->
+            <!-- 🔧 P51: 临时调试按钮(折叠) -->
             <view v-if="!isOnCall" class="debug-actions debug-actions--collapsed">
               <view class="debug-btn" @click="testBreathe">🫁 呼吸</view>
               <view class="debug-btn" @click="testHappy">🤚 抚摸</view>
@@ -244,7 +244,7 @@
                 </view>
                 <view class="tts-loading-bubble">
                   <text class="tts-spin-icon">⏳</text>
-                  <text class="tts-loading-text">语音合成中…</text>
+                  <text class="tts-loading-text">语音合成中...</text>
                 </view>
               </view>
 
@@ -290,7 +290,7 @@
                 <view class="recording-wave">
                   <view class="recording-bar" v-for="i in 5" :key="i" :style="{ animationDelay: (i * 0.15) + 's' }" />
                 </view>
-                <text class="recording-text">{{ willCancelRecord ? '松开取消' : '正在聆听…松开发送' }}</text>
+                <text class="recording-text">{{ willCancelRecord ? '松开取消' : '正在聆听...松开发送' }}</text>
                 <text class="recording-cancel">↑ 上滑取消</text>
               </view>
             </view>
@@ -322,7 +322,7 @@ try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch {
 const goBack = () => uni.navigateBack()
 
 /* ================================================================
- * G：统一 currentPet 对象 — P48 标准化数据结构
+ * G:统一 currentPet 对象 - P48 标准化数据结构
  * ================================================================ */
 interface CurrentPet {
   id: string
@@ -363,7 +363,7 @@ function stageToName(stage: number): string {
 const currentPet = reactive<CurrentPet>(createDefaultPet())
 
 /* ================================================================
- * P48：本地情绪覆盖 — 抚摸/喂食触发，4秒后自动恢复
+ * P48:本地情绪覆盖 - 抚摸/喂食触发,4秒后自动恢复
  * ================================================================ */
 const localEmotionOverride = ref<string | null>(null)
 let emotionTimer: ReturnType<typeof setTimeout> | null = null
@@ -374,7 +374,7 @@ function setEmotionOverride(emotion: string, durationMs: number = 4000) {
   emotionTimer = setTimeout(() => { localEmotionOverride.value = null }, durationMs)
 }
 
-/** 当前展示用的 emotionKey：优先本地覆盖，否则后端值 */
+/** 当前展示用的 emotionKey:优先本地覆盖,否则后端值 */
 const displayEmotionKey = computed(() => {
   if (animationState.value === 'evolution') return 'evolution'
   return localEmotionOverride.value || currentPet.emotionKey || 'idle'
@@ -384,7 +384,7 @@ const displayEmotionKey = computed(() => {
  * 常量映射
  * ================================================================ */
 const SPRITE_BASE = 'https://stage-api.lanyunke.com/uploads/sprites'
-const SPRITE_V = 'v=20260630161700' // P50: 破微信图片缓存（更新于 2026-06-30 16:17）
+const SPRITE_V = 'v=20260630161700' // P50: 破微信图片缓存(更新于 2026-06-30 16:17)
 
 /** P64: 宠物展示图片URL */
 const petDisplayImage = computed(() => {
@@ -421,7 +421,7 @@ function speciesLabel(child: any): string {
 }
 
 /**
- * P54: 统一精灵图 URL 拼接 — 格式: speciesId/stageKey_emotionKey.png
+ * P54: 统一精灵图 URL 拼接 - 格式: speciesId/stageKey_emotionKey.png
  */
 function getSpriteUrl(speciesId: string | undefined, stageKey: string, emotionKey: string): string {
   if (!speciesId) return ''
@@ -500,7 +500,7 @@ const chatSpriteUrl = computed(() => {
   return getSpriteUrl(pet.speciesId, pet.stageKey, 'idle')
 })
 function onChatSpriteError() {
-  // chat 头像加载失败 → 自动回退 emoji（由 v-else 处理）
+  // chat 头像加载失败 → 自动回退 emoji(由 v-else 处理)
 }
 
 // 隔离状态
@@ -521,11 +521,11 @@ const viewMode = ref<'home' | 'chat'>('home')
 const petEnergy = ref(75)
 const greetingText = ref('')
 const isFirstMeeting = ref(false)
-/** P57: 标记刚完成进化，用于显示专属问候 */
+/** P57: 标记刚完成进化,用于显示专属问候 */
 let greetingTimer: ReturnType<typeof setTimeout> | null = null
 const justEvolved = ref(false)
 
-// P48: 动画状态（驱动 PetAnimator CSS）
+// P48: 动画状态(驱动 PetAnimator CSS)
 const animationState = ref<'idle' | 'happy' | 'sad' | 'eating' | 'evolution'>('idle')
 const petBubbleText = ref('')
 
@@ -541,18 +541,18 @@ const moodEmoji = computed(() => {
 
 const moodText = computed(() => {
   const m = currentPet.mood
-  if (m >= 80) return '今天很开心！😄'
-  if (m >= 60) return '心情不错～'
-  if (m >= 40) return '有点想你…'
-  return '你能陪陪我吗…🥺'
+  if (m >= 80) return '今天很开心!😄'
+  if (m >= 60) return '心情不错~'
+  if (m >= 40) return '有点想你...'
+  return '你能陪陪我吗...🥺'
 })
 
-/** P51: 成长能量百分比（0-100） */
+/** P51: 成长能量百分比(0-100) */
 const expPercent = computed(() => {
-  // 如果 currentPet 有 expPercent 直接用，否则根据 level 估算
+  // 如果 currentPet 有 expPercent 直接用,否则根据 level 估算
   const pet = currentPet as any
   if (typeof pet.expPercent === 'number') return Math.round(pet.expPercent * 100)
-  // 估算：每级需要 100 经验，当前经验 % 100 即为进度
+  // 估算:每级需要 100 经验,当前经验 % 100 即为进度
   return Math.min(100, Math.max(0, ((currentPet.exp || 0) % 100)))
 })
 
@@ -569,7 +569,7 @@ const moodLabel = computed(() => {
 const petBubbleVisible = ref(false)
 
 /* ================================================================
- * onShow — 初始化 & 进化检测
+ * onShow - 初始化 & 进化检测
  * ================================================================ */
 onShow(() => {
   try {
@@ -584,25 +584,25 @@ onShow(() => {
     if (store.childList.length > 0) {
       const child = store.childList[store.currentIndex]
       if (child) {
-        // P48: 检查是否刚完成进化（用 createdAt 新字段名）
+        // P48: 检查是否刚完成进化(用 createdAt 新字段名)
         const evolveFlag = uni.getStorageSync('pet_just_evolved')
         if (evolveFlag) {
           try {
             const flag = JSON.parse(evolveFlag)
             const ts = flag.createdAt || flag.time || 0
-            // P50: 校验 childId 匹配，防止第二个宝贝误触发进化动画
+            // P50: 校验 childId 匹配,防止第二个宝贝误触发进化动画
             if (flag.petId && flag.childId === child.id && (Date.now() - ts < 120000)) {
-              // P50: 立即清除标记，防止重复触发
+              // P50: 立即清除标记,防止重复触发
               uni.removeStorageSync('pet_just_evolved')
 
-              // P50: 预填充临时 pet 对象，防止模板回退到"加载中…"
+              // P50: 预填充临时 pet 对象,防止模板回退到"加载中..."
               petsByChild[child.id] = {
                 id: flag.petId || '',
                 speciesId: flag.speciesId || '',
                 stageKey: flag.fromStageKey || 'egg',
               } as any
 
-              // P50: 进化动画 — 用原始形态显示进化特效
+              // P50: 进化动画 - 用原始形态显示进化特效
               currentPet.speciesId = flag.speciesId || ''
               currentPet.stageKey = flag.fromStageKey || 'egg'
               currentPet.stage = flag.fromStage ?? 0
@@ -610,9 +610,9 @@ onShow(() => {
               currentPet.mood = 80
               localEmotionOverride.value = null
               animationState.value = 'evolution'
-              petBubbleText.value = '完成任务，我进化了！'
+              petBubbleText.value = '完成任务,我进化了!'
               petBubbleVisible.value = true
-              // P50: 10 秒后结束进化，重新拉取数据（显示新形态）
+              // P50: 10 秒后结束进化,重新拉取数据(显示新形态)
               setTimeout(() => {
                 animationState.value = 'idle'
                 petBubbleText.value = ''
@@ -649,7 +649,7 @@ watch(() => store.currentChildId, (newChildId: string | null) => {
 })
 
 /* ================================================================
- * G：loadPetAndHistory — 填充 unified currentPet
+ * G:loadPetAndHistory - 填充 unified currentPet
  * ================================================================ */
 const loadPetAndHistory = async (childId: string) => {
   inputMap[childId] = ''
@@ -705,14 +705,14 @@ const loadPetAndHistory = async (childId: string) => {
           chatCache[childId] = [...newOnly, ...existingMsgs]
         } else if (existingMsgs.length === 0) {
           chatCache[childId] = [
-            { role: 'pet', content: '嗷呜！你终于来啦，想和我聊点什么？😊' },
+            { role: 'pet', content: '嗷呜!你终于来啦,想和我聊点什么?😊' },
           ]
         }
         setTimeout(() => scrollToBottom(childId), 300)
       } catch {
         if (!chatCache[childId] || chatCache[childId].length === 0) {
           chatCache[childId] = [
-            { role: 'pet', content: '嗷呜！你终于来啦，想和我聊点什么？😊' },
+            { role: 'pet', content: '嗷呜!你终于来啦,想和我聊点什么?😊' },
           ]
         }
       }
@@ -734,15 +734,15 @@ const loadGreeting = async (childId: string) => {
   } catch {
     greetingText.value = ''
   }
-  // P57: 无后端问候时，按 stage 和进化状态补本地文案
+  // P57: 无后端问候时,按 stage 和进化状态补本地文案
   if (!greetingText.value) {
     if (justEvolved.value) {
-      greetingText.value = Math.random() > 0.5 ? '主人！我出来啦！' : '我已经升级啦！'
+      greetingText.value = Math.random() > 0.5 ? '主人!我出来啦!' : '我已经升级啦!'
       justEvolved.value = false
     } else if (currentPet.stageKey === 'egg') {
-      greetingText.value = Math.random() > 0.5 ? '咚咚……我在蛋里等你哦' : '完成任务后，我就能破壳啦'
+      greetingText.value = Math.random() > 0.5 ? '咚咚......我在蛋里等你哦' : '完成任务后,我就能破壳啦'
     } else {
-      greetingText.value = '嗷呜！你终于来啦！'
+      greetingText.value = '嗷呜!你终于来啦!'
     }
   }
   // P57: 问候气泡 8 秒后自动关闭
@@ -881,7 +881,7 @@ function connectWebSocket(token: string, childId: string) {
 
     switch (data.type) {
       case 'call_connected':
-        callPetText.value = data.text || data.message || '喂？听到你啦！'
+        callPetText.value = data.text || data.message || '喂?听到你啦!'
         callStatus.value = 'pet_speaking'
         if (data.audio) handleBase64Pcm(data.audio)
         break
@@ -987,7 +987,7 @@ function handleBase64Pcm(base64Data: string, mimeType: string = 'audio/pcm') {
     // 从 mimeType 中提取采样率
     let sampleRate = 24000
     if (mimeType.includes('16000')) sampleRate = 16000
-    
+
     const binaryStr = (uni as any).base64ToArrayBuffer
       ? (uni as any).base64ToArrayBuffer(base64Data)
       : base64ToArrayBuffer(base64Data)
@@ -1031,7 +1031,7 @@ function playNextPcm() {
   isPlayingPcm = true
   const item = pcmBufferQueue.shift()!
 
-  // PCM 16bit, mono → WAV 后播放（采样率从 mimeType 推断）
+  // PCM 16bit, mono → WAV 后播放(采样率从 mimeType 推断)
   const sampleRate = item.sampleRate || 24000
   const numChannels = 1
   const bitsPerSample = 16
@@ -1113,13 +1113,14 @@ function startPhoneCall() {
   pcmBufferQueue.length = 0
   isPlayingPcm = false
 
-  const token = uni.getStorageSync('token')
+  // P68 fix: 使用正确的 token 键名
+  const token = uni.getStorageSync('habitpet_token') || uni.getStorageSync('token')
   const childId = currentChild?.value?.id || ''
-
-  console.log('[P68] Token exists:', !!token, 'ChildId:', childId)
+  
+  console.log('[P68] Token exists:', !!token, 'ChildId:', childId, 'Token:', token?.substring(0, 20))
 
   if (!token) {
-    callError.value = '未登录，请先登录'
+    callError.value = '未登录,请先登录'
     callStatus.value = 'error'
     return
   }
@@ -1185,7 +1186,7 @@ function toggleRealtimeMode() {
   }
 }
 
-// ========== 按住说话模式录音（使用 HTTP voice-chat API）==========
+// ========== 按住说话模式录音(使用 HTTP voice-chat API)==========
 function startPttRecord() {
   pttRecording.value = true
   pttRecorder = uni.getRecorderManager()
@@ -1208,7 +1209,7 @@ function startPttRecord() {
     } catch (e: any) {
       console.error('[P68] PTT voice chat error:', e)
       callStatus.value = 'listening'
-      uni.showToast({ title: '语音识别失败，请重试', icon: 'none' })
+      uni.showToast({ title: '语音识别失败,请重试', icon: 'none' })
     }
   })
 
@@ -1227,8 +1228,8 @@ function startPttRecord() {
 }
 
 async function sendVoiceToHttp(filePath: string, childId: string) {
-  const token = uni.getStorageSync('token')
   const API_BASE_URL = 'https://stage-api.lanyunke.com/api/v1'
+  const token = uni.getStorageSync('habitpet_token') || uni.getStorageSync('token')
 
   return new Promise((resolve, reject) => {
     uni.uploadFile({
@@ -1246,7 +1247,7 @@ async function sendVoiceToHttp(filePath: string, childId: string) {
 
           callPetText.value = data.text || ''
 
-          // 播放 TTS 音频（edge-tts 生成的 MP3）
+          // 播放 TTS 音频(edge-tts 生成的 MP3)
           if (data.segments && data.segments.length > 0) {
             playPttSegments(data.segments)
           } else if (data.audioUrl) {
@@ -1354,13 +1355,13 @@ function stopWsPing() {
 }
 
 /* ================================================================
- * P48: 宠物互动 — 使用 localEmotionOverride
+ * P48: 宠物互动 - 使用 localEmotionOverride
  * ================================================================ */
 /* ================================================================
- * P64: 已移除所有序列帧/Sprite Sheet 动画 — 回归静态图 + 气泡交互
+ * P64: 已移除所有序列帧/Sprite Sheet 动画 - 回归静态图 + 气泡交互
  * ================================================================ */
 
-/** P64: 点击宠物触发抚摸 — 仅显示气泡 */
+/** P64: 点击宠物触发抚摸 - 仅显示气泡 */
 function handlePetTap() {
   if (viewMode.value !== 'home') return
   if (animationState.value === 'evolution') return
@@ -1368,11 +1369,11 @@ function handlePetTap() {
   // 每日抚摸限制
   const count = getDailyPetCount()
   if (count >= PET_DAILY_LIMIT) {
-    uni.showToast({ title: '今天抚摸够了，明天再来吧', icon: 'none', duration: 2000 })
+    uni.showToast({ title: '今天抚摸够了,明天再来吧', icon: 'none', duration: 2000 })
     return
   }
 
-  const bubbles = ['好舒服呀～', '嗷呜！再摸摸！', '尾巴都要摇掉啦！', '嘿嘿，主人最好啦！', '再摸一下嘛～']
+  const bubbles = ['好舒服呀~', '嗷呜!再摸摸!', '尾巴都要摇掉啦!', '嘿嘿,主人最好啦!', '再摸一下嘛~']
   petBubbleText.value = bubbles[Math.floor(Math.random() * bubbles.length)]
   petBubbleVisible.value = true
   petAltAction.value = 'bounce'
@@ -1388,17 +1389,17 @@ function handlePetTap() {
   }, 3000)
 }
 
-/** P64: 喂食 — 仅显示气泡 */
+/** P64: 喂食 - 仅显示气泡 */
 const feedPet = () => {
   // 喂食冷却检查
   const remaining = getFeedCooldownRemaining()
   if (remaining > 0) {
     const hours = Math.ceil(remaining / (60 * 60 * 1000))
-    uni.showToast({ title: `今天吃饱了，${hours}个小时后，再来喂我吧`, icon: 'none', duration: 2000 })
+    uni.showToast({ title: `今天吃饱了,${hours}个小时后,再来喂我吧`, icon: 'none', duration: 2000 })
     return
   }
 
-  const bubbles = ['吃饱啦！好满足～', '嗷呜，谢谢主人！', '嗝～太好吃啦！', '主人最好了！']
+  const bubbles = ['吃饱啦!好满足~', '嗷呜,谢谢主人!', '嗝~太好吃啦!', '主人最好了!']
   petBubbleText.value = bubbles[Math.floor(Math.random() * bubbles.length)]
   petBubbleVisible.value = true
   petAltAction.value = 'bounce'
@@ -1414,7 +1415,7 @@ const feedPet = () => {
   }, 3000)
 }
 
-// 🔧 临时测试函数 — P64: 回归纯气泡
+// 🔧 临时测试函数 - P64: 回归纯气泡
 const testBreathe = () => {
   animationState.value = 'idle'
   localEmotionOverride.value = null
@@ -1423,14 +1424,14 @@ const testBreathe = () => {
   currentPet.mood = 50
 }
 const testHappy = () => {
-  petBubbleText.value = '好舒服呀～🤚✨'
+  petBubbleText.value = '好舒服呀~🤚✨'
   petBubbleVisible.value = true
   petAltAction.value = 'bounce'
   currentPet.mood = 85
   setTimeout(() => { petBubbleText.value = ''; petBubbleVisible.value = false; petAltAction.value = '' }, 3000)
 }
 const testEating = () => {
-  petBubbleText.value = '吃饱啦！😋'
+  petBubbleText.value = '吃饱啦!😋'
   petBubbleVisible.value = true
   petAltAction.value = 'bounce'
   petEnergy.value = 90
@@ -1444,7 +1445,7 @@ const testSad = () => {
   currentPet.mood = 30
   currentPet.emotionKey = 'sad'
   localEmotionOverride.value = 'sad'
-  petBubbleText.value = '你能陪陪我吗…😢'
+  petBubbleText.value = '你能陪陪我吗...😢'
   petBubbleVisible.value = true
 }
 const testEvolution = async () => {
@@ -1454,7 +1455,7 @@ const testEvolution = async () => {
   if (!pet?.id) return
 
   animationState.value = 'evolution'
-  petBubbleText.value = '进化中…🌈'
+  petBubbleText.value = '进化中...🌈'
   petBubbleVisible.value = true
 
   try {
@@ -1463,7 +1464,7 @@ const testEvolution = async () => {
       await loadPetAndHistory(child.id)
       animationState.value = 'idle'
       localEmotionOverride.value = null
-      petBubbleText.value = '进化完成！🌟'
+      petBubbleText.value = '进化完成!🌟'
       petBubbleVisible.value = true
       setTimeout(() => { petBubbleText.value = ''; petBubbleVisible.value = false }, 2000)
     }
@@ -1561,13 +1562,13 @@ const sendText = async (childId: string) => {
   thinkingMap[childId] = true
   try {
     const res = await api.post<{ reply: string; sessionId: string }>('/ai/chat', { message: text, childId })
-    const reply = res.data?.reply || '嗷呜～我听到了！'
+    const reply = res.data?.reply || '嗷呜~我听到了!'
     chatCache[childId] = [...chatCache[childId], { role: 'pet', content: reply }]
     if (ttsEnabled.value && reply.length > 0) {
       playTTS(reply, (res.data as any)?.audioSegments)
     }
   } catch (e: any) {
-    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: '嗷呜…AI助手暂时休息中，请稍后再试试？😅' }]
+    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: '嗷呜...AI助手暂时休息中,请稍后再试试?😅' }]
   } finally {
     thinkingMap[childId] = false
     await scrollToBottom(childId)
@@ -1599,7 +1600,7 @@ const startRecord = (childId: string, e?: any) => {
     recorder.onError((err: any) => {
       recordingMap[childId] = false
       if (willCancelRecord.value) { willCancelRecord.value = false; return }
-      uni.showToast({ title: '录音失败，请重试', icon: 'none' })
+      uni.showToast({ title: '录音失败,请重试', icon: 'none' })
     })
   }
   recorder.start({ format: 'mp3', duration: 60000 })
@@ -1612,13 +1613,13 @@ const cancelRecord = (childId: string) => { recordingMap[childId] = false; recor
 const sendVoice = async (childId: string, filePath: string) => {
   if (!childId) return
   if (!chatCache[childId]) chatCache[childId] = []
-  chatCache[childId] = [...chatCache[childId], { role: 'user', content: '🎤 识别中…', type: 'voice' }]
+  chatCache[childId] = [...chatCache[childId], { role: 'user', content: '🎤 识别中...', type: 'voice' }]
   await scrollToBottom(childId)
   thinkingMap[childId] = true
   try {
     const res = await api.upload<{ text: string; transcribedText: string; segments: Array<{text:string;audioUrl:string}>; latencyMs: number }>('/ai/voice-chat-groq', filePath, { childId })
     const result = res.data
-    const petReply = result?.text || '嗷呜…没听清楚，可以再说一遍吗？'
+    const petReply = result?.text || '嗷呜...没听清楚,可以再说一遍吗?'
     const userText = result?.transcribedText || ''
     if (ttsEnabled.value && petReply.length > 0) playTTS(petReply, result?.segments)
     const msgs = chatCache[childId]
@@ -1630,7 +1631,7 @@ const sendVoice = async (childId: string, filePath: string) => {
   } catch (e: any) {
     console.error('[Voice] upload error:', e)
     const errMsg = e?.errMsg || e?.message || ''
-    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: errMsg.includes('timeout') ? '网络超时，请重试' : '语音识别出了点问题，请再试一次吧~' }]
+    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: errMsg.includes('timeout') ? '网络超时,请重试' : '语音识别出了点问题,请再试一次吧~' }]
   } finally {
     thinkingMap[childId] = false
     await scrollToBottom(childId)
@@ -1712,7 +1713,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 .pet-stat-divider { width:2rpx; height:48rpx; background:rgba(0,0,0,0.08); }
 .pet-display { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24rpx; padding:40rpx; }
 
-/* P63: 宠物主体区域 — 下移 300rpx，宠物"站"在背景平台上 */
+/* P63: 宠物主体区域 - 下移 300rpx,宠物"站"在背景平台上 */
 .pet-layer-area {
   position: absolute;
   top: calc(55% - 205rpx);
@@ -1736,7 +1737,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   filter: drop-shadow(0 12rpx 24rpx rgba(0,0,0,0.3)) drop-shadow(0 0 20rpx rgba(255,255,255,0.15));
 }
 
-/* P55: 状态卡 — 右上角，稍大 */
+/* P55: 状态卡 - 右上角,稍大 */
 /* P63: 宠物名称上移 200rpx */
 .pet-status-top-right {
   position: absolute;
@@ -1746,7 +1747,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   max-width: 340rpx;
 }
 
-/* P50: 底部按钮 — 大尺寸圆形按钮 */
+/* P50: 底部按钮 - 大尺寸圆形按钮 */
 .pet-bottom-bar {
   position: absolute;
   bottom: 60rpx;
@@ -1801,7 +1802,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 .back-btn { width:56rpx; height:56rpx; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .back-arrow { font-size:36rpx; color:#5B3E96; font-weight:bold; }
 
-/* P68: 通话底部控制栏 — 垂直排列，PTT在上，挂断/切换在下 */
+/* P68: 通话底部控制栏 - 垂直排列,PTT在上,挂断/切换在下 */
 .call-bottom-bar {
   position: absolute;
   bottom: 60rpx;
@@ -1815,7 +1816,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   z-index: 10;
 }
 
-/* 模式切换 + 挂断：水平排列 */
+/* 模式切换 + 挂断:水平排列 */
 .call-bottom-row {
   display: flex;
   flex-direction: row;
@@ -1823,7 +1824,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   gap: 30rpx;
 }
 
-/* 切换对话模式 — 毛玻璃效果 */
+/* 切换对话模式 - 毛玻璃效果 */
 .call-mode-switch {
   display: flex;
   flex-direction: column;
@@ -1846,7 +1847,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   color: rgba(255, 255, 255, 0.6);
 }
 
-/* 挂断按钮 — 毛玻璃效果 */
+/* 挂断按钮 - 毛玻璃效果 */
 .call-hangup-btn {
   display: flex;
   align-items: center;
@@ -1870,7 +1871,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   font-weight: 500;
 }
 
-/* PTT 大按钮 — 正常流式布局，毛玻璃效果 */
+/* PTT 大按钮 - 正常流式布局,毛玻璃效果 */
 .call-ptt-big-btn {
   width: 220rpx;
   height: 220rpx;
@@ -1910,7 +1911,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   }
 }
 
-/* 通话状态指示器（宠物上方） */
+/* 通话状态指示器(宠物上方) */
 .call-status-indicator {
   display: flex;
   align-items: center;
@@ -1928,7 +1929,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 .call-status-indicator .call-status-dot--speaking { color: #87CEEB; }
 .call-status-indicator .call-status-dot--listening { color: #90EE90; }
 
-/* 问候气泡（保留，与通话无关） */
+/* 问候气泡(保留,与通话无关) */
 .greeting-bubble {
   position: absolute;
   top: -80rpx;
@@ -1953,7 +1954,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   font-weight: 500;
 }
 
-/* P50: 3D 游戏按钮 — 玻璃质感 + 弹性反馈 */
+/* P50: 3D 游戏按钮 - 玻璃质感 + 弹性反馈 */
 .game-btn {
   border-radius: 24rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06));
@@ -2002,7 +2003,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 /* P50: 心情背景由 PetScene 组件接管 */
 
 /* 问候语 + 心情文字 */
-/* P50: 问候气泡 — 绝对定位悬浮在宠物上方，不挤压宠物 */
+/* P50: 问候气泡 - 绝对定位悬浮在宠物上方,不挤压宠物 */
 
 .greeting-bubble--first {
   animation: greetingFadeIn 0.8s ease-out both;
@@ -2012,13 +2013,13 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 .pet-mood-text { font-size:26rpx; color:rgba(255,255,255,0.75); margin-top:4rpx; }
 
 /* ================================================================
- * P57: 进化特效 — 激光柱 + 脉冲光环 + 火花粒子
+ * P57: 进化特效 - 激光柱 + 脉冲光环 + 火花粒子
  * ================================================================ */
 .pet-layer-area--evolving {
   /* 进化动画区域整体增强 */
 }
 
-/* 粒子层容器 — 覆盖宠物区域 */
+/* 粒子层容器 - 覆盖宠物区域 */
 .evo-particle-layer {
   position: absolute;
   top: 0;
@@ -2030,7 +2031,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   overflow: visible;
 }
 
-/* 火花粒子 — 从中心向外飞散 */
+/* 火花粒子 - 从中心向外飞散 */
 .evo-particle {
   position: absolute;
   bottom: 40%;
@@ -2061,7 +2062,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   }
 }
 
-/* 进化光柱 — 从宠物中心直冲上方 */
+/* 进化光柱 - 从宠物中心直冲上方 */
 .evo-light-beam {
   position: absolute;
   top: -120rpx;
@@ -2093,7 +2094,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   }
 }
 
-/* 脉冲光环 — 从宠物中心向外扩散 */
+/* 脉冲光环 - 从宠物中心向外扩散 */
 .evo-pulse-ring {
   position: absolute;
   top: 50%;
@@ -2124,7 +2125,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   }
 }
 
-/* P50: 进化中文字提示 — 轻量级悬浮，绝对定位在宠物上方，透明背景 */
+/* P50: 进化中文字提示 - 轻量级悬浮,绝对定位在宠物上方,透明背景 */
 .evo-evolving-text {
   position: absolute;
   top: -120rpx;
@@ -2157,7 +2158,7 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
   50% { opacity: 1; }
 }
 
-/* 进化中的宠物图片/Sprite额外增强 — 覆盖默认 drop-shadow */
+/* 进化中的宠物图片/Sprite额外增强 - 覆盖默认 drop-shadow */
 .pet-layer-area--evolving :deep(.pet-anim-img),
 .pet-layer-area--evolving :deep(.pet-anim-sprite) {
   filter: drop-shadow(0 0 30rpx rgba(255, 215, 0, 0.9)) drop-shadow(0 0 60rpx rgba(255, 255, 255, 0.6)) drop-shadow(0 8rpx 24rpx rgba(0,0,0,0.3)) !important;
