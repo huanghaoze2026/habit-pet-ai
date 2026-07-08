@@ -1,8 +1,10 @@
 <template>
-  <view class="pcc-card" :style="{height:height+'rpx'}">
+  <view class="pcc-card" :style="{height:height+'rpx'}" @click.stop="tapPet">
     <image v-if="card.sceneImage" :src="card.sceneImage" class="pcc-bg" mode="aspectFill" @error="bgErr=true" />
     <view v-if="!card.sceneImage || bgErr" class="pcc-bg-fb" />
     <image v-if="card.petImage" :src="card.petImage" class="pcc-pet" mode="aspectFit" />
+
+    <view v-if="greetBubble" class="pcc-greet"><text>{{ greetBubble }}</text></view>
 
     <view class="pcc-tl">
       <image v-if="card.childAvatar" :src="card.childAvatar" class="pcc-av" mode="aspectFill" />
@@ -55,7 +57,7 @@ const STAGE_NAMES: Record<string, string> = {
 }
 
 const props = defineProps<{ card: Record<string,any>; height: number; maxStats: number }>()
-const emit = defineEmits(['barTap'])
+const emit = defineEmits(['barTap', 'petTap'])
 
 const stageName = computed(() => STAGE_NAMES[props.card.stageKey] || '蛋仔期')
 
@@ -69,6 +71,22 @@ function tap(k:string){
   tt=setTimeout(()=>sel.value='',2000)
 }
 function barH(v:number){ return Math.max(8,(v/(props.maxStats||1))*70)+'rpx' }
+
+// 点击卡片：宠物打招呼（气泡 + 交给父组件播 AI 语音）
+const greetBubble = ref('')
+let greetTimer:ReturnType<typeof setTimeout>|null=null
+let lastTap = 0
+function tapPet(){
+  if(Date.now()-lastTap < 1500) return
+  lastTap = Date.now()
+  const n = props.card.petName || props.card.petNickname || '宠物'
+  const lines = [`你好呀，我是${n}！`, `${n}在这儿等你玩哦~`, '嗨，摸摸我呀！', '嗷呜，你来啦！']
+  const line = lines[Math.floor(Math.random()*lines.length)]
+  greetBubble.value = line
+  if(greetTimer)clearTimeout(greetTimer)
+  greetTimer=setTimeout(()=>{ greetBubble.value='' },4000)
+  emit('petTap', { text: line })
+}
 </script>
 
 <style scoped>
@@ -86,6 +104,7 @@ function barH(v:number){ return Math.max(8,(v/(props.maxStats||1))*70)+'rpx' }
 .pcc-xp{width:80rpx;height:5rpx;background:rgba(255,255,255,.3);border-radius:3rpx;margin-top:2rpx;overflow:hidden}
 .pcc-xp-f{height:100%;background:#FFD700;border-radius:3rpx}
 .pcc-mood{position:absolute;top:82%;left:50%;transform:translateX(-50%);z-index:2;font-size:22rpx;color:#fff;background:rgba(0,0,0,.3);padding:4rpx 16rpx;border-radius:20rpx}
+.pcc-greet{position:absolute;top:22%;left:50%;transform:translateX(-50%);z-index:3;font-size:20rpx;color:#fff;background:rgba(0,0,0,.6);padding:6rpx 16rpx;border-radius:20rpx;white-space:nowrap;max-width:88%;text-align:center}
 .pcc-bars{position:absolute;bottom:0;left:0;right:0;z-index:2;display:flex;justify-content:space-around;align-items:flex-end;padding:8rpx 4rpx 14rpx;height:25%;box-sizing:border-box;background:transparent}
 .bar{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:60rpx;height:100%;gap:6rpx}
 .bar-f{width:48rpx;border-radius:6rpx 6rpx 0 0;min-height:8rpx}

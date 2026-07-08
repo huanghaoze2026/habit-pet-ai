@@ -17,7 +17,7 @@
         placeholder="请详细描述你遇到的问题，或想提出的建议..."
         maxlength="1000"
       />
-      <button class="submit-btn" :loading="loading" @tap="submit">
+      <button class="submit-btn" :loading="loading" :disabled="loading" @tap="submit">
         提交反馈
       </button>
     </view>
@@ -37,6 +37,7 @@ const content = ref('')
 const loading = ref(false)
 
 async function submit() {
+  if (loading.value) return
   if (!title.value.trim()) {
     uni.showToast({ title: '请输入标题', icon: 'none' })
     return

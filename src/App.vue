@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app';
 import { useUserStore } from '@/stores/user';
+import { captureInviterFromOptions, tryAcceptPendingInvite } from '@/utils/invite';
 
 const userStore = useUserStore();
 
-onLaunch(() => {
-  console.log('[App] onLaunch');
+onLaunch((options: any) => {
+  console.log('[App] onLaunch', options);
+  // 尽早捕获分享人ID(兼容 分享链接 inviter 与 扫码 scene)，存本地存储
+  captureInviterFromOptions(options);
   // 检查登录状态
   userStore.checkLoginStatus();
 });
 
-onShow(() => {
-  console.log('[App] onShow');
+onShow((options: any) => {
+  console.log('[App] onShow', options);
+  captureInviterFromOptions(options);
+  // 已登录时尝试处理待处理邀请(免弹窗直接建好友)
+  if (userStore.userId) tryAcceptPendingInvite(userStore.userId);
 });
 
 onHide(() => {

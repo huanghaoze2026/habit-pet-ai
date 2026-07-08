@@ -1,6 +1,6 @@
 {
   "name": "habitpet-miniapp",
-  "version": "1.0.4",
+  "version": "1.0.0",
   "description": "HabitPet 微信小程序",
   "main": "main.ts",
   "scripts": {

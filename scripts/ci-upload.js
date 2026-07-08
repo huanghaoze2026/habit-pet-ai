@@ -15,10 +15,27 @@ const fs = require('fs');
 
 // ============ 配置 ============
 
+// 根据 src/manifest.json 的 mp-weixin.appid 自动选择 appid 与对应密钥
+function resolveAppId() {
+  try {
+    const raw = fs.readFileSync(path.resolve(__dirname, '../src/manifest.json'), 'utf-8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    const manifest = JSON.parse(raw);
+    const appid = manifest['mp-weixin'] && manifest['mp-weixin'].appid;
+    if (appid) return appid;
+  } catch (e) {
+    console.warn('⚠️  解析 manifest.json 失败，回退硬编码 appid:', e.message);
+  }
+  return 'wx4d7b124abd2f9569';
+}
+
+const APPID = resolveAppId();
+
 const CONFIG = {
-  appid: 'wx33b9235184a825ea',
+  appid: APPID,
   projectPath: path.resolve(__dirname, '../dist/build/mp-weixin'),
-  privateKeyPath: path.resolve(__dirname, '../ci-key/private.wx33b9235184a825ea.key'),
+  privateKeyPath: path.resolve(__dirname, `../ci-key/private.${APPID}.key`),
   // 忽略的文件
   ignores: ['node_modules/**/*'],
 };
@@ -37,7 +54,7 @@ for (let i = 1; i < args.length; i++) {
   }
 }
 
-const desc = params.desc || `构建时间: ${new Date().toLocaleString('zh-CN')}`;
+const desc = params.desc || '正式发布，包括基本功能：任务首页，宠物圈，我的。';
 const version = params.version || `1.0.${Date.now()}`;
 
 // ============ 校验 ============

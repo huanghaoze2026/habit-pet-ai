@@ -186,6 +186,7 @@ const goBack = () => uni.navigateBack()
 
 const handleComplete = async () => {
   if (!task.value) return
+  if (submitting.value) return
   try {
     if (task.value.needPhoto) {
       // 拍照 → 跳转打卡详情页确认提交
@@ -349,6 +350,7 @@ const handleComplete = async () => {
 }
 .complete-btn--loading {
   background: #A5D6A7;
+  pointer-events: none;
 }
 
 .done-badge {

@@ -4,7 +4,7 @@
       <text class="title">隐私政策</text>
       <text class="date">更新日期：2026年6月18日\n生效日期：2026年6月18日</text>
 
-      <text class="p">"打卡养AI宠物"微信小程序（以下简称"我们"）非常重视用户个人信息与隐私保护。本《隐私政策》将向您说明我们如何收集、使用、存储和保护您的信息。</text>
+      <text class="p">"好习惯养宠"微信小程序（以下简称"我们"）非常重视用户个人信息与隐私保护。本《隐私政策》将向您说明我们如何收集、使用、存储和保护您的信息。</text>
 
       <text class="h2">一、我们收集的信息</text>
       <text class="p"><text class="bold">1.1 微信授权登录信息</text>\n当您使用微信登录时，我们获取：微信OpenID、微信昵称、微信头像。</text>
@@ -48,7 +48,7 @@
         <text class="p">📄 网页版隐私政策：lanyunke.com/privacy</text>
       </view>
 
-      <text class="footer-text">© 2026 打卡养AI宠物 · 保留所有权利</text>
+      <text class="footer-text">© 2026 好习惯养宠 · 保留所有权利</text>
     </view>
   </scroll-view>
 </template>

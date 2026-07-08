@@ -3,6 +3,7 @@
  */
 
 import api, { ApiResponse } from './api';
+import { API_BASE } from '../utils/env';
 
 /** 微信登录响应 */
 export interface WxLoginResponse {
@@ -73,7 +74,7 @@ export async function updateProfile(data: { nickname?: string; avatar?: string; 
  * P59: 上传头像到服务器
  */
 async function uploadAvatar(filePath: string): Promise<string> {
-  const baseUrl = 'https://stage-api.lanyunke.com/api/v1'
+  const baseUrl = API_BASE
   const token = uni.getStorageSync('habitpet_token') || ''
   return new Promise((resolve, reject) => {
     uni.uploadFile({

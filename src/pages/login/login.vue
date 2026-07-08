@@ -3,7 +3,7 @@
     <view class="login-header">
       <view class="logo-area">
         <image class="logo-img" src="/static/logo-new.png" mode="aspectFit" />
-        <text class="app-name">打卡养AI宠物</text>
+        <text class="app-name">好习惯养宠</text>
         <text class="app-slogan">让孩子主动完成任务的AI伙伴</text>
       </view>
     </view>
@@ -39,7 +39,7 @@
             <input class="profile-nickname-input" type="nickname" v-model="profileForm.nickname" placeholder="点击输入昵称（微信将自动填入）" maxlength="20" @blur="onNicknameBlur" @focus="onNicknameFocus" />
             <text v-if="!profileForm.nickname" class="profile-nickname-hint">👆 点击输入框，键盘顶部会显示"使用微信昵称"</text>
           </view>
-          <button class="profile-submit-btn" :class="{'profile-submit-btn--auto':autoCountdown>0}" :disabled="!canSubmit" :loading="profileSubmitting" @tap="submitProfile">
+          <button class="profile-submit-btn" :class="{'profile-submit-btn--auto':autoCountdown>0}" :disabled="!canSubmit || profileSubmitting" :loading="profileSubmitting" @tap="submitProfile">
             <text v-if="profileSubmitting">保存中...</text>
             <text v-else-if="autoCountdown>0">🎉 {{ autoCountdown }}s 后自动进入</text>
             <text v-else>进入应用</text>
@@ -56,6 +56,7 @@ import { ref, reactive, computed, watch, onUnmounted } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { wxLogin, updateProfile } from '@/services/auth'
 import { useUserStore } from '@/stores/user'
+import { tryAcceptPendingInvite, savePendingInviter } from '@/utils/invite'
 
 const userStore = useUserStore()
 const isLoading = ref(false)
@@ -70,9 +71,11 @@ const redirectAction = ref('')
 const redirectInviter = ref('')
 
 onLoad((options: any) => {
+  // 兼容旧的带参回跳：若带了 inviter，同步存入本地存储，后续统一走存储式链路
   if (options?.redirect === 'invite') {
     redirectAction.value = 'invite'
     redirectInviter.value = options?.inviter || ''
+    savePendingInviter(redirectInviter.value)
   }
 })
 
@@ -94,11 +97,15 @@ watch(
 
 onUnmounted(() => { if (countdownTimer) clearInterval(countdownTimer) })
 
-function goAfterLogin() {
-  if (redirectAction.value === 'invite' && redirectInviter.value) {
-    uni.redirectTo({ url: `/pages/invite/accept?inviter=${redirectInviter.value}` })
+async function goAfterLogin() {
+  // 存储式邀请：若有待处理邀请，登录后自动建好友并进孠物圈
+  const pending = uni.getStorageSync('pendingInviterId')
+  if (pending) {
+    await tryAcceptPendingInvite(userStore.userId)
+    uni.switchTab({ url: '/pages/pet-circle/index' })
     return
   }
+  // 无邀请：维持原有跳转任务页
   uni.switchTab({ url: '/pages/task/task' })
 }
 

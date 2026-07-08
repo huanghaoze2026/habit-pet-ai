@@ -1,9 +1,11 @@
 /**
  * API 请求封装 — 基于 uni.request
- * 测试环境 API: https://stage-api.lanyunke.com
+ * 域名按 appid 自动切换，见 utils/env.ts
  */
 
-const BASE_URL = 'https://stage-api.lanyunke.com/api/v1'
+import { API_BASE } from '../utils/env'
+
+const BASE_URL = API_BASE
 const TOKEN_KEY = 'habitpet_token'
 
 interface ApiResponse<T = any> {
@@ -63,6 +65,8 @@ export const api = {
   put: <T = any>(url: string, data?: any, opts?: ApiOptions) =>
     request<T>('PUT', url, data, opts),
   del: <T = any>(url: string, data?: any, opts?: ApiOptions) =>
+    request<T>('DELETE', url, data, opts),
+  delete: <T = any>(url: string, data?: any, opts?: ApiOptions) =>
     request<T>('DELETE', url, data, opts),
   /** 上传文件（用于语音等 multipart 上传） */
   upload: <T = any>(url: string, filePath: string, formData?: Record<string, any>) =>

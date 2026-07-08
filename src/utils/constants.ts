@@ -2,8 +2,10 @@
  * 应用常量配置
  */
 
-/** API 基础地址（开发环境/生产环境自动切换） */
-export const API_BASE_URL = 'https://stage-api.lanyunke.com/api/v1';
+import { API_BASE } from './env';
+
+/** API 基础地址（按 appid 自动切换，见 utils/env.ts） */
+export const API_BASE_URL = API_BASE;
 
 /** 本地调试用（小程序开发工具中启用） */
 // export const API_BASE_URL = 'http://localhost:3101/api/v1';

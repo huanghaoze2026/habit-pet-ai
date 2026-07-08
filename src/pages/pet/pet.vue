@@ -162,7 +162,7 @@
             @touchstart="onChatTouchStart"
             @touchend="onChatTouchEnd"
           >
-            <view class="top-bar">
+            <view class="top-bar" :style="{ paddingTop: (statusBarH || 20) + 'px' }">
               <view class="back-btn" @click="backToHome">
                 <text class="back-arrow">←</text>
               </view>
@@ -210,11 +210,15 @@
                     <view class="chat-speaker-btn" @tap.stop="playTTS(msg.content)">
                       <text class="chat-speaker-icon">🔊</text>
                     </view>
+                    <text v-if="msg.time" class="chat-time chat-time--pet">{{ formatChatTime(msg.time) }}</text>
                   </view>
                 </template>
                 <template v-else>
-                  <view class="chat-bubble chat-bubble--user">
-                    <text>{{ msg.content }}</text>
+                  <view class="chat-bubble-wrapper chat-bubble-wrapper--user">
+                    <view class="chat-bubble chat-bubble--user">
+                      <text>{{ msg.content }}</text>
+                    </view>
+                    <text v-if="msg.time" class="chat-time chat-time--user">{{ formatChatTime(msg.time) }}</text>
                   </view>
                   <view v-if="msg.type === 'voice'" class="chat-voice-tag">
                     <text class="chat-voice-icon">🎤</text>
@@ -316,6 +320,7 @@ import PetAnimator from '@/components/pet-animator/index.vue'
 import PetScene from '@/components/PetScene.vue'
 import PetStatusCard from '@/components/PetStatusCard.vue'
 import PetBubble from '@/components/pet-bubble/index.vue'
+import { API_ORIGIN, API_BASE, WS_ORIGIN } from '@/utils/env'
 
 const statusBarH = ref(20)
 try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch {}
@@ -383,7 +388,7 @@ const displayEmotionKey = computed(() => {
 /* ================================================================
  * 常量映射
  * ================================================================ */
-const SPRITE_BASE = 'https://stage-api.lanyunke.com/uploads/sprites'
+const SPRITE_BASE = `${API_ORIGIN}/uploads/sprites`
 const SPRITE_V = 'v=20260630161700' // P50: 破微信图片缓存(更新于 2026-06-30 16:17)
 
 /** P64: 宠物展示图片URL */
@@ -482,6 +487,7 @@ interface ChatMessage {
   role: 'user' | 'pet' | 'user_call' | 'pet_call'
   content: string
   type?: 'text' | 'voice'
+  time?: string
 }
 interface PetInfo {
   id: string; name: string; stage: string; level: number; mood: number
@@ -696,7 +702,7 @@ const loadPetAndHistory = async (childId: string) => {
     // 加载对话历史
     if (pet) {
       try {
-        const historyRes = await api.get<{ messages: { role: string; content: string; time: string }[] }>('/ai/history', { childId, limit: 30 })
+        const historyRes = await api.get<{ messages: { role: string; content: string; time: string }[] }>('/ai/history', { childId, limit: 100 })
         const msgs = (historyRes.data as any)?.messages || []
         const existingMsgs = chatCache[childId] || []
         if (msgs.length > 0) {
@@ -704,6 +710,7 @@ const loadPetAndHistory = async (childId: string) => {
             role: (m.role === 'assistant' ? 'pet' : m.role) as ChatMessage['role'],
             content: m.content,
             type: 'text' as const,
+            time: m.time,
           }))
           const seen = new Set(existingMsgs.map(m => `${m.role}:${m.content}`))
           const newOnly = dbMsgs.filter(m => !seen.has(`${m.role}:${m.content}`))
@@ -797,16 +804,61 @@ let wsPingTimer: ReturnType<typeof setInterval> | null = null
 let reconnectAttempts = 0
 const MAX_RECONNECT = 3
 
-// PCM 音频缓冲队列
+// PCM 音频缓冲队列 (fallback 文件式路径使用)
 interface PcmQueueItem { data: ArrayBuffer; sampleRate: number }
 const pcmBufferQueue: PcmQueueItem[] = []
 let isPlayingPcm = false
 let pcmPlayer: any = null
 
+// P68-无缝播放: WebAudioContext 链式排程(消除 Gemini 碎包导致的沙沙/断续)
+// 旧路径每个碎包都写临时 wav + 新建 InnerAudioContext 顺序播放 → 频繁建缓存 → 严重空隙。
+// 改为 wx.createWebAudioContext() 用 AudioBufferSourceNode 按时间轴无缝拼接;
+// 低版本基础库(无 createWebAudioContext) 自动回退到旧文件式路径。
+const useWebAudio = typeof (wx as any).createWebAudioContext === 'function'
+let webAudioCtx: any = null
+let nextStartTime = 0
+let activeSources: any[] = []
+
+function ensureWebAudioCtx(): any {
+  if (!webAudioCtx) {
+    webAudioCtx = (wx as any).createWebAudioContext()
+    nextStartTime = 0
+  }
+  return webAudioCtx
+}
+
 // 按住说话模式
 const pttRecording = ref(false)
-let pttRecorder: any = null
+let pttRecorder: any = null       // 兼容旧引用，不再单独 getRecorderManager()
 let pttRecorderStartTime = 0
+
+// P68-fix: RecorderManager 是全局单例，全双工(mic) 与 按住说话(ptt) 必须共用同一个实例。
+// 之前两处各自 uni.getRecorderManager() 并各自注册回调，切 mic→ptt 时上一段录音可能
+// 尚未释放就 start 新录音 → operateRecorder:fail，PTT 起不来、onStop 不触发、从不上传。
+// 方案：单例惰性初始化，回调只注册一次，按 recorderMode 分发；上滑取消用 pttCancelled 跳过上传。
+let recorderManager: any = null
+let recorderMode: 'mic' | 'ptt' | null = null
+let pttCancelled = false
+// 半双工防回声护栏：宠物音频到达/播放期间(+拖尾)静音麦克风推流的截止时间戳
+let petAudioGuardUntil = 0
+
+// 相对时间格式化：今天->HH:mm；昨天->昨天 HH:mm；本周内->周X HH:mm；更早->M月D日 HH:mm
+function formatChatTime(iso?: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const now = new Date()
+  const pad = (n: number) => (n < 10 ? '0' + n : '' + n)
+  const hm = pad(d.getHours()) + ':' + pad(d.getMinutes())
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86400000)
+  if (diffDays <= 0) return hm
+  if (diffDays === 1) return '昨天 ' + hm
+  if (diffDays < 7) {
+    return ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()] + ' ' + hm
+  }
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + hm
+}
 
 function stopAllTTS() {
   audioQueue.value = []
@@ -825,12 +877,22 @@ function stopAllTTS() {
 }
 
 function stopAllAudio() {
+  // WebAudio 分支: 停止所有排程中的 source(打断/stop_audio 都会调用)
+  if (activeSources.length) {
+    for (const s of activeSources) {
+      try { s.stop() } catch {}
+    }
+    activeSources = []
+  }
+  // 打断后重新从 ctx.currentTime 排程; 不在此处 close() ctx(同一通话继续复用)
+  nextStartTime = 0
+
   // 停止所有 InnerAudioContext 实例
   if (playingAudio.value) {
     try { playingAudio.value.stop() } catch {}
     try { playingAudio.value.destroy() } catch {}
   }
-  // 停止 PCM 播放器
+  // 停止 PCM 播放器 (fallback 文件式路径)
   if (pcmPlayer) {
     try { pcmPlayer.stop() } catch {}
     try { pcmPlayer.destroy() } catch {}
@@ -846,7 +908,7 @@ function connectWebSocket(token: string, childId: string) {
     try { wsConnection.close() } catch {}
   }
 
-  const wsUrl = `wss://stage-api.lanyunke.com/api/v1/ai/realtime-call?token=${encodeURIComponent(token)}&childId=${encodeURIComponent(childId)}`
+  const wsUrl = `${WS_ORIGIN}/api/v1/ai/realtime-call?token=${encodeURIComponent(token)}&childId=${encodeURIComponent(childId)}`
 
   // 🔍 诊断日志
   console.log('[P68] Connecting WebSocket:', wsUrl.replace(token, 'TOKEN_HIDDEN'))
@@ -949,29 +1011,80 @@ function connectWebSocket(token: string, childId: string) {
 }
 
 // ========== 麦克风管理 ==========
-let micRecorder: any = null
+let micRecorder: any = null      // 兼容旧引用
 
-function startMicrophone() {
-  micRecorder = uni.getRecorderManager()
+// P68-fix: 惰性初始化全局单例 RecorderManager，回调只注册一次，按 recorderMode 分发
+function getRecorder() {
+  if (recorderManager) return recorderManager
+  recorderManager = uni.getRecorderManager()
 
-  micRecorder.onFrameRecorded((res: any) => {
-    if (wsConnection && callStatus.value !== 'pet_speaking') {
-      callStatus.value = 'listening'
+  // 帧回调：仅全双工(mic) 模式推流给后端
+  recorderManager.onFrameRecorded((res: any) => {
+    if (recorderMode !== 'mic') return
+    // 半双工防回声：宠物正在说话(含播放拖尾)时不推流麦克风，
+    // 否则外放的宠物声被麦克风采集→回传 Gemini→被当成用户说话→回声反馈环，
+    // 表现为多轮后宠物开始回应自己的话、对话错乱/卡住。
+    if (!wsConnection) return
+    if (callStatus.value === 'pet_speaking' || Date.now() < petAudioGuardUntil) return
+    callStatus.value = 'listening'
+    wsConnection.send({
+      data: res.frameBuffer,
+      success: () => {},
+      fail: () => handleWsError('发送音频失败')
+    })
+  })
+
+  recorderManager.onStart(() => {})
+
+  // 停止回调：仅 PTT 模式处理（取消判定 + 时长校验 + 上传）；mic 模式无需处理
+  recorderManager.onStop(async (res: any) => {
+    if (recorderMode !== 'ptt') return
+
+    // 上滑取消：不上传
+    if (pttCancelled) {
+      pttCancelled = false
+      pttRecording.value = false
+      return
     }
-    if (wsConnection) {
-      wsConnection.send({
-        data: res.frameBuffer,
-        success: () => {},
-        fail: () => handleWsError('发送音频失败')
-      })
+
+    const duration = Date.now() - pttRecorderStartTime
+    if (duration < 800) {
+      pttRecording.value = false
+      uni.showToast({ title: '说话太短了', icon: 'none' })
+      return
+    }
+
+    pttRecording.value = false
+    callStatus.value = 'pet_speaking'
+
+    try {
+      const childId = currentChild?.value?.id || ''
+      await sendVoiceToHttp(res.tempFilePath, childId)
+    } catch (e: any) {
+      console.error('[P68] PTT voice chat error:', e)
+      callStatus.value = 'listening'
+      uni.showToast({ title: '语音识别失败,请重试', icon: 'none' })
     }
   })
 
-  micRecorder.onStart(() => {})
-  micRecorder.onStop(() => {})
-  micRecorder.onError(() => { handleWsError('麦克风错误') })
+  // 出错回调：按模式分发
+  recorderManager.onError(() => {
+    if (recorderMode === 'ptt') {
+      pttRecording.value = false
+      uni.showToast({ title: '录音失败', icon: 'none' })
+    } else {
+      handleWsError('麦克风错误')
+    }
+  })
 
-  micRecorder.start({
+  return recorderManager
+}
+
+function startMicrophone() {
+  recorderMode = 'mic'
+  const rec = getRecorder()
+  micRecorder = rec   // 兼容旧引用
+  rec.start({
     duration: 60000,
     sampleRate: 16000,
     numberOfChannels: 1,
@@ -982,16 +1095,70 @@ function startMicrophone() {
 }
 
 function stopMicrophone() {
-  if (micRecorder) {
-    try { micRecorder.stop() } catch {}
-    micRecorder = null
+  if (recorderManager) {
+    try { recorderManager.stop() } catch {}
   }
+  recorderMode = null
+  // 保持单例：不置空 recorderManager
 }
 
 // ========== PCM 音频播放 ==========
 function handlePcmAudio(pcmData: ArrayBuffer, sampleRate: number = 24000) {
-  pcmBufferQueue.push({ data: pcmData, sampleRate })
-  if (!isPlayingPcm) playNextPcm()
+  // 半双工防回声：只要有宠物音频到达/播放，其后 700ms 内静音麦克风推流(覆盖 0.4s 抖动缓冲+尾包)
+  petAudioGuardUntil = Date.now() + 700
+  // 低版本基础库: 回退到旧文件式顺序播放
+  if (!useWebAudio) {
+    pcmBufferQueue.push({ data: pcmData, sampleRate })
+    if (!isPlayingPcm) playNextPcm()
+    return
+  }
+
+  // P69-流畅修复: 抖动缓冲 + 杜绝空隙
+  // WebAudioContext 链式排程: Int16 PCM → Float32 → AudioBuffer，按抖动缓冲策略排程
+  try {
+    const ctx = ensureWebAudioCtx()
+
+    // 字节数应为偶数; 奇数做防护截断
+    const usableBytes = pcmData.byteLength - (pcmData.byteLength % 2)
+    if (usableBytes <= 0) return
+    const i16 = new Int16Array(pcmData.slice(0, usableBytes))
+    const f32 = new Float32Array(i16.length)
+    for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768
+
+    const buffer = ctx.createBuffer(1, f32.length, sampleRate)
+    if (typeof buffer.getChannelData === 'function') {
+      buffer.getChannelData(0).set(f32)
+    } else if (typeof buffer.copyToChannel === 'function') {
+      buffer.copyToChannel(f32, 0)
+    }
+
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.connect(ctx.destination)
+
+    // P69-抖动缓冲 + 杜绝空隙:
+    //   - nextStartTime == 0 (首包/挂断后重建) → 垫 PRIME_LEAD_SEC 建立缓冲
+    //   - nextStartTime 落后/接近 currentTime (欠载/管线空闲) → 垫 PRIME_LEAD_SEC
+    //   - 否则 → 无缝衔接下一包
+    // 这样首包和每次欠载都重建 ~0.4s 缓冲，连续流畅段保持无缝。
+    // nextStartTime 只增不倒退，不会把 source 排到过去时间点。
+    const PRIME_LEAD_SEC = 0.8
+    const ctxNow = ctx.currentTime
+    const isIdleOrUnderrun = nextStartTime === 0 || nextStartTime <= ctxNow + 0.02
+    const startAt = isIdleOrUnderrun ? ctxNow + PRIME_LEAD_SEC : nextStartTime
+    source.start(startAt)
+    nextStartTime = startAt + buffer.duration
+
+    activeSources.push(source)
+    source.onended = () => {
+      const idx = activeSources.indexOf(source)
+      if (idx >= 0) activeSources.splice(idx, 1)
+    }
+  } catch (e) {
+    // WebAudio 异常 → 兜底走文件式路径
+    pcmBufferQueue.push({ data: pcmData, sampleRate })
+    if (!isPlayingPcm) playNextPcm()
+  }
 }
 
 function handleBase64Pcm(base64Data: string, mimeType: string = 'audio/pcm') {
@@ -1125,6 +1292,14 @@ function startPhoneCall() {
   pcmBufferQueue.length = 0
   isPlayingPcm = false
 
+  // 重置 WebAudio 无缝播放状态: 若已存在先 close 重建, 保证每通电话干净排程
+  if (webAudioCtx) {
+    try { webAudioCtx.close() } catch {}
+    webAudioCtx = null
+  }
+  nextStartTime = 0
+  activeSources = []
+
   // P68 fix: 使用正确的 token 键名
   const token = uni.getStorageSync('habitpet_token') || uni.getStorageSync('token')
   const childId = currentChild?.value?.id || ''
@@ -1164,6 +1339,14 @@ function hangUp() {
   stopAllAudio()
   pcmBufferQueue.length = 0
   isPlayingPcm = false
+
+  // 关闭 WebAudio 上下文 (通话结束彻底释放)
+  if (webAudioCtx) {
+    try { webAudioCtx.close() } catch {}
+    webAudioCtx = null
+  }
+  nextStartTime = 0
+  activeSources = []
   
   // 重置状态
   isOnCall.value = false
@@ -1208,48 +1391,42 @@ function toggleRealtimeMode() {
 }
 
 // ========== 按住说话模式录音(使用 HTTP voice-chat API)==========
+// P68-fix: 复用全局单例，回调在 getRecorder() 里统一注册；这里只负责切模式 + start
 function startPttRecord() {
+  // 若上一段是全双工麦克风录音，先停掉，避免单例仍在录音导致 start 失败
+  if (recorderMode === 'mic') {
+    stopMicrophone()
+  }
+
+  pttCancelled = false
   pttRecording.value = true
-  pttRecorder = uni.getRecorderManager()
+  recorderMode = 'ptt'
   pttRecorderStartTime = Date.now()
 
-  pttRecorder.onStop(async (res: any) => {
-    const duration = Date.now() - pttRecorderStartTime
-    if (duration < 800) {
-      pttRecording.value = false
-      uni.showToast({ title: '说话太短了', icon: 'none' })
-      return
-    }
+  const rec = getRecorder()
+  pttRecorder = rec   // 兼容旧引用
 
-    pttRecording.value = false
-    callStatus.value = 'pet_speaking'
-
+  // 规避单例竞态：短延时保护，确保上一次 stop 已释放后再 start mp3
+  setTimeout(() => {
+    // 用户可能已在延时窗口内松手/取消
+    if (recorderMode !== 'ptt' || !pttRecording.value) return
     try {
-      const childId = currentChild?.value?.id || ''
-      await sendVoiceToHttp(res.tempFilePath, childId)
-    } catch (e: any) {
-      console.error('[P68] PTT voice chat error:', e)
-      callStatus.value = 'listening'
-      uni.showToast({ title: '语音识别失败,请重试', icon: 'none' })
+      rec.start({
+        format: 'mp3',
+        duration: 60000,
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        encodeBitRate: 48000
+      })
+    } catch {
+      pttRecording.value = false
+      uni.showToast({ title: '录音启动失败', icon: 'none' })
     }
-  })
-
-  pttRecorder.onError(() => {
-    pttRecording.value = false
-    uni.showToast({ title: '录音失败', icon: 'none' })
-  })
-
-  pttRecorder.start({
-    format: 'mp3',
-    duration: 60000,
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    encodeBitRate: 48000
-  })
+  }, 150)
 }
 
 async function sendVoiceToHttp(filePath: string, childId: string) {
-  const API_BASE_URL = 'https://stage-api.lanyunke.com/api/v1'
+  const API_BASE_URL = API_BASE
   const token = uni.getStorageSync('habitpet_token') || uni.getStorageSync('token')
 
   return new Promise((resolve, reject) => {
@@ -1292,17 +1469,23 @@ async function sendVoiceToHttp(filePath: string, childId: string) {
 }
 
 function stopPttRecord() {
-  if (pttRecorder) {
-    try { pttRecorder.stop() } catch {}
+  if (recorderMode !== 'ptt') return
+  // 松手即结束按钮态；若仍在 150ms 延时窗口内(尚未真正 start)，stop 为空操作、onStop 不触发，避免孤立录音
+  pttRecording.value = false
+  if (recorderManager) {
+    try { recorderManager.stop() } catch {}   // 触发 getRecorder().onStop 分发上传
   }
+  // 保持单例：不置空 recorderManager
 }
 
 function cancelPttRecord() {
+  if (recorderMode !== 'ptt') return
+  pttCancelled = true               // onStop 分发里据此跳过上传
   pttRecording.value = false
-  if (pttRecorder) {
-    try { pttRecorder.stop() } catch {}
-    pttRecorder = null
+  if (recorderManager) {
+    try { recorderManager.stop() } catch {}
   }
+  // 保持单例：不置空 recorderManager
 }
 
 // 播放单个音频 URL
@@ -1469,12 +1652,15 @@ const testSad = () => {
   petBubbleText.value = '你能陪陪我吗...😢'
   petBubbleVisible.value = true
 }
+const evolving = ref(false)
 const testEvolution = async () => {
   const child = currentChild.value
   if (!child) return
   const pet = petsByChild[child.id]
   if (!pet?.id) return
+  if (evolving.value) return
 
+  evolving.value = true
   animationState.value = 'evolution'
   petBubbleText.value = '进化中...🌈'
   petBubbleVisible.value = true
@@ -1494,6 +1680,8 @@ const testEvolution = async () => {
     petBubbleText.value = e?.message || '进化失败'
     petBubbleVisible.value = true
     setTimeout(() => { petBubbleText.value = ''; petBubbleVisible.value = false }, 2000)
+  } finally {
+    evolving.value = false
   }
 }
 
@@ -1574,7 +1762,7 @@ const sendText = async (childId: string) => {
   if (!text || thinkingMap[childId] || !childId) return
   inputMap[childId] = ''
   if (!chatCache[childId]) chatCache[childId] = []
-  chatCache[childId] = [...chatCache[childId], { role: 'user', content: text, type: 'text' }]
+  chatCache[childId] = [...chatCache[childId], { role: 'user', content: text, type: 'text', time: new Date().toISOString() }]
   await scrollToBottom(childId)
   if (!playingAudio.value) {
     playingAudio.value = uni.createInnerAudioContext({ useWebAudioImplement: true })
@@ -1584,12 +1772,12 @@ const sendText = async (childId: string) => {
   try {
     const res = await api.post<{ reply: string; sessionId: string }>('/ai/chat', { message: text, childId })
     const reply = res.data?.reply || '嗷呜~我听到了!'
-    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: reply }]
+    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: reply, time: new Date().toISOString() }]
     if (ttsEnabled.value && reply.length > 0) {
       playTTS(reply, (res.data as any)?.audioSegments)
     }
   } catch (e: any) {
-    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: '嗷呜...AI助手暂时休息中,请稍后再试试?😅' }]
+    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: '嗷呜...AI助手暂时休息中,请稍后再试试?😅', time: new Date().toISOString() }]
   } finally {
     thinkingMap[childId] = false
     await scrollToBottom(childId)
@@ -1634,7 +1822,7 @@ const cancelRecord = (childId: string) => { recordingMap[childId] = false; recor
 const sendVoice = async (childId: string, filePath: string) => {
   if (!childId) return
   if (!chatCache[childId]) chatCache[childId] = []
-  chatCache[childId] = [...chatCache[childId], { role: 'user', content: '🎤 识别中...', type: 'voice' }]
+  chatCache[childId] = [...chatCache[childId], { role: 'user', content: '🎤 识别中...', type: 'voice', time: new Date().toISOString() }]
   await scrollToBottom(childId)
   thinkingMap[childId] = true
   try {
@@ -1645,14 +1833,14 @@ const sendVoice = async (childId: string, filePath: string) => {
     if (ttsEnabled.value && petReply.length > 0) playTTS(petReply, result?.segments)
     const msgs = chatCache[childId]
     if (userText && msgs.length > 0 && msgs[msgs.length - 1].role === 'user') {
-      msgs[msgs.length - 1] = { role: 'user', content: userText, type: 'voice' }
+      msgs[msgs.length - 1] = { role: 'user', content: userText, type: 'voice', time: new Date().toISOString() }
       chatCache[childId] = [...msgs]
     }
-    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: petReply }]
+    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: petReply, time: new Date().toISOString() }]
   } catch (e: any) {
     console.error('[Voice] upload error:', e)
     const errMsg = e?.errMsg || e?.message || ''
-    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: errMsg.includes('timeout') ? '网络超时,请重试' : '语音识别出了点问题,请再试一次吧~' }]
+    chatCache[childId] = [...chatCache[childId], { role: 'pet', content: errMsg.includes('timeout') ? '网络超时,请重试' : '语音识别出了点问题,请再试一次吧~', time: new Date().toISOString() }]
   } finally {
     thinkingMap[childId] = false
     await scrollToBottom(childId)
@@ -1691,6 +1879,10 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 .chat-bubble { max-width:65%; padding:20rpx 24rpx; border-radius:24rpx; font-size:28rpx; line-height:40rpx; word-break:break-all; }
 .chat-bubble--pet { background:#ffffff; color:#333; border-top-left-radius:6rpx; box-shadow:0 2rpx 8rpx rgba(0,0,0,0.06); }
 .chat-bubble-wrapper { display:flex; flex-direction:column; gap:4rpx; }
+.chat-bubble-wrapper--user { display:flex; flex-direction:column; align-items:flex-end; gap:4rpx; }
+.chat-time { font-size:20rpx; color:#b0b0b0; margin-top:6rpx; }
+.chat-time--pet { text-align:left; padding-left:6rpx; }
+.chat-time--user { text-align:right; padding-right:6rpx; }
 .chat-speaker-btn { align-self:flex-start; padding:4rpx 12rpx; margin-left:12rpx; }
 .chat-speaker-icon { font-size:24rpx; opacity:0.5; }
 .chat-bubble--user { background:#95EC69; color:#000000; border-top-right-radius:6rpx; }

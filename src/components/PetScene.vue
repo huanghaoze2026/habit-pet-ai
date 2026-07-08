@@ -39,6 +39,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { API_ORIGIN } from '@/utils/env'
 
 /** P63: 简化时间感知 — 白天/夜晚两种场景 */
 const currentHour = ref(new Date().getHours())
@@ -68,7 +69,7 @@ const sceneTimeKey = computed(() => {
 })
 
 /** P54: 场景图片 URL（CDN 加载，不占小程序包体积） */
-const SCENE_CDN = 'https://stage-api.lanyunke.com/uploads/scenes'
+const SCENE_CDN = `${API_ORIGIN}/uploads/scenes`
 const SCENE_V = '20260629180000' // P63: 火龙犬白天背景更新 + 场景简化
 
 const sceneImageUrl = computed(() => {

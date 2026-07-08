@@ -1,6 +1,6 @@
 <template>
   <view class="page-task">
-    <CustomNavbar title="打卡养AI宠物" :showInvite="false" />
+    <CustomNavbar title="好习惯养宠" :showInvite="false" />
     <view class="nav-spacer" />
 
     <!-- P36: 无宝贝时：使用指引 + 添加按钮 -->
@@ -28,10 +28,11 @@
       <swiper-item v-for="(child, childIdx) in store.childList" :key="child.id">
         <view class="top-bar">
           <view class="top-bar-left" @click="nextChild">
+            <text v-if="store.childList.length > 1" class="arrow-switch arrow-switch--left" @click.stop="prevChild">‹</text>
             <image v-if="child.avatar" :src="child.avatar" class="top-bar-avatar" mode="aspectFill" />
             <view v-else class="top-bar-avatar-default"><text>{{ child.gender === 'male' ? '👦' : child.gender === 'female' ? '👧' : '👶' }}</text></view>
             <text class="top-bar-name">{{ child.nickname }}</text>
-            <text v-if="store.childList.length > 1" class="arrow-right">▾</text>
+            <text v-if="store.childList.length > 1" class="arrow-switch arrow-switch--right" @click.stop="nextChild">›</text>
           </view>
           <!-- 今日任务：绝对居中 -->
           <text v-if="childTasks[child.id] && childTasks[child.id].length > 0" class="top-bar-today">今日任务</text>
@@ -60,14 +61,14 @@
                   <view class="task-info-col">
                     <text class="task-name">{{ task.name }}</text>
                     <text v-if="task.description" class="task-desc">{{ task.description }}</text>
+                    <text v-if="task.rewardContent" class="task-reward">🎁 {{ task.rewardContent }}</text>
                   </view>
                 </view>
                 <view class="task-right">
-                  <text class="task-energy">⚡ {{ task.energy || task.points || 0 }}</text>
                   <view v-if="task.doneToday" class="task-done-label">
                     <text class="task-done-check">✅</text>
                   </view>
-                  <view v-else class="task-done-btn" @click.stop="completeTask(task)">
+                  <view v-else class="task-done-btn" :class="{ 'task-done-btn--busy': completing }" @click.stop="completeTask(task)">
                     <text class="task-done-text">完成</text>
                   </view>
                 </view>
@@ -115,10 +116,12 @@ import { useChildStore } from '@/stores/child'
 import { useUserStore } from '@/stores/user'
 import EmptyState from '@/components/empty-state/index.vue'
 import CustomNavbar from '@/components/custom-navbar/index.vue'
+import { API_ORIGIN } from '@/utils/env'
 
 interface Task {
   id: string | number; name: string; title?: string; icon?: string
   energy?: number; points?: number; needPhoto?: boolean; doneToday?: boolean
+  description?: string; rewardContent?: string
 }
 
 const store = useChildStore()
@@ -159,7 +162,7 @@ const completing = ref(false) // P65: 防重复点击
 let glowTimer: ReturnType<typeof setTimeout> | null = null
 let particleTimer: ReturnType<typeof setTimeout> | null = null
 
-const SPRITE_CDN = 'https://stage-api.lanyunke.com/uploads/sprites'
+const SPRITE_CDN = `${API_ORIGIN}/uploads/sprites`
 const SPRITE_VER = 'v=20260630161700' // P50: 破微信图片缓存（更新于 2026-06-30 16:17）
 
 /**
@@ -335,6 +338,10 @@ const nextChild = () => {
     store.switchTo(store.currentIndex + 1)
 }
 
+const prevChild = () => {
+  if (store.currentIndex > 0) store.switchTo(store.currentIndex - 1)
+}
+
 const refreshCurrentChild = () => {
   if (store.childList.length > 0) {
     loadedIndices.value.add(store.currentIndex)
@@ -356,7 +363,7 @@ onShow(() => {
 const onShareAppMessage = () => {
   const uid = uni.getStorageSync('habitpet_user')
   const userId = uid ? JSON.parse(uid).userId : ''
-  return { title:'邀你来打卡养AI宠物！', path:`/pages/invite/accept?inviter=${userId}`, imageUrl:'https://api.lanyunke.com/uploads/share/invite_card.png' }
+  return { title:'邀你来好习惯养宠！', path:`/pages/invite/accept?inviter=${userId}`, imageUrl:'https://api.lanyunke.com/uploads/share/invite_card.png' }
 }
 
 uni.$on('task:refresh', () => refreshCurrentChild())
@@ -481,7 +488,11 @@ const completeTask = async (task: Task) => {
 .top-bar-stats { font-size:22rpx; color:#8B5CF6; font-weight:600; margin-left:12rpx; }
 .top-bar-avatar,.top-bar-avatar-default { width:62rpx; height:62rpx; border-radius:50%; background:#D4C5F0; display:flex; align-items:center; justify-content:center; font-size:32rpx; }
 .top-bar-name { font-size:28rpx; font-weight:bold; color:#222; text-shadow:0 1rpx 2rpx rgba(255,255,255,0.8); }
-.arrow-right { font-size:24rpx; color:#222; margin-left:4rpx; }
+/* 宝贝切换左右箭头 */
+.arrow-switch { font-size:32rpx; color:#222; font-weight:bold; display:flex; align-items:center; padding:0 6rpx; text-shadow:0 1rpx 2rpx rgba(255,255,255,0.8); }
+.arrow-switch--left { margin-right:4rpx; }
+.arrow-switch--right { margin-left:4rpx; }
+.arrow-switch:active { opacity:0.45; }
 /* 右上角浮动添加按钮（浅芋紫色） */
 /* P62: 新增按钮粉色调毛玻璃 */
 .top-bar-add { position:absolute; top:20rpx; right:24rpx; width:56rpx; height:56rpx; border-radius:40rpx; background:rgba(255,142,158,0.75); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; z-index:10; box-shadow:0 4rpx 20rpx rgba(255,142,158,0.3); border:1px solid rgba(255,255,255,0.4); }
@@ -612,9 +623,10 @@ const completeTask = async (task: Task) => {
 .task-info-col { display:flex; flex-direction:column; gap:6rpx; flex:1; min-width:0; }
 .task-name { font-size:30rpx; color:#2D2D2D; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1rpx 2rpx rgba(255,255,255,0.8); }
 .task-desc { font-size:24rpx; color:#555; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.task-reward { font-size:23rpx; color:#E0912F; margin-top:4rpx; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .task-right { display:flex; align-items:center; }
-.task-energy { font-size:24rpx; color:#555; background:rgba(245,240,255,0.7); padding:8rpx 20rpx; border-radius:24rpx; }
 .task-done-btn { margin-left:12rpx; padding:8rpx 20rpx; background:#4CAF50; border-radius:24rpx; }
+.task-done-btn--busy { opacity:0.5; pointer-events:none; }
 .task-done-text { font-size:24rpx; color:#fff; }
 .task-done-label { margin-left:12rpx; padding:8rpx 20rpx; }
 .task-done-check { font-size:28rpx; }

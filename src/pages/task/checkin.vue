@@ -137,6 +137,7 @@ const previewPhoto = () => {
 const goBack = () => uni.navigateBack()
 
 const handleSubmit = async () => {
+  if (submitting.value) return
   if (!photoPath.value) {
     uni.showToast({ title: '请先拍摄照片', icon: 'none' })
     return
@@ -343,5 +344,6 @@ const handleSubmit = async () => {
 }
 .submit-btn--disabled {
   background: #CCC;
+  pointer-events: none;
 }
 </style>

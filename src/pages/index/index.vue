@@ -3,7 +3,7 @@
     <view class="splash">
       <image class="splash-logo" src="/static/logo-dragon.png" mode="aspectFit" />
       <text class="splash-title">养成系AI宠物</text>
-      <text class="splash-subtitle">打卡养 AI 宠物</text>
+      <text class="splash-subtitle">好习惯养宠</text>
     </view>
   </view>
 </template>

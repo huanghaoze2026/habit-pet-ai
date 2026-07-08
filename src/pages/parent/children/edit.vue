@@ -255,7 +255,7 @@ function getChildIdFromUrl(): string {
 }
 
 async function handleSubmit(): Promise<void> {
-  if (!canSubmit.value) return;
+  if (!canSubmit.value || isSubmitting.value) return;
   isSubmitting.value = true;
 
   const childId = getChildIdFromUrl();

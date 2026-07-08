@@ -62,7 +62,7 @@
               <text class="form-label">密保答案</text>
               <input class="form-input" v-model="setup.answer" placeholder="请输入密保答案" maxlength="30" />
             </view>
-            <button class="form-btn" :disabled="!setupValid" :loading="setupLoading" @click="doSetup">确认设置</button>
+            <button class="form-btn" :disabled="!setupValid || setupLoading" :loading="setupLoading" @click="doSetup">确认设置</button>
           </view>
         </scroll-view>
       </view>
@@ -89,7 +89,7 @@
               <text class="form-label">确认新密码</text>
               <input class="form-input" v-model="changePwd.confirmPassword" type="number" password maxlength="6" placeholder="请再次输入新密码" />
             </view>
-            <button class="form-btn" :disabled="!changePwdValid" :loading="changePwdLoading" @click="doChangePwd">确认修改</button>
+            <button class="form-btn" :disabled="!changePwdValid || changePwdLoading" :loading="changePwdLoading" @click="doChangePwd">确认修改</button>
           </view>
         </scroll-view>
       </view>
@@ -116,7 +116,7 @@
               <text class="form-label">确认新密码</text>
               <input class="form-input" v-model="resetPwd.confirmPassword" type="number" password maxlength="6" placeholder="请再次输入新密码" />
             </view>
-            <button class="form-btn" :disabled="!resetPwdValid" :loading="resetPwdLoading" @click="doResetPwd">确认重置</button>
+            <button class="form-btn" :disabled="!resetPwdValid || resetPwdLoading" :loading="resetPwdLoading" @click="doResetPwd">确认重置</button>
           </view>
         </scroll-view>
       </view>
@@ -182,6 +182,7 @@ onMounted(async () => {
 })
 
 async function doSetup() {
+  if (setupLoading.value) return
   if (!setupValid.value) return
   setupLoading.value = true
   try {
@@ -202,6 +203,7 @@ async function doSetup() {
 }
 
 async function doChangePwd() {
+  if (changePwdLoading.value) return
   if (!changePwdValid.value) return
   changePwdLoading.value = true
   try {
@@ -219,6 +221,7 @@ async function doChangePwd() {
 }
 
 async function doResetPwd() {
+  if (resetPwdLoading.value) return
   if (!resetPwdValid.value) return
   resetPwdLoading.value = true
   try {

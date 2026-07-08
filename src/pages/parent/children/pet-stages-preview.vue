@@ -37,6 +37,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { API_ORIGIN } from '@/utils/env'
 
 interface StageItem {
   key: string
@@ -68,7 +69,7 @@ onMounted(() => {
 })
 
 function getImageUrl(stageKey: string): string {
-  return `https://stage-api.lanyunke.com/uploads/sprites/${speciesId.value}/${stageKey}_idle.png`
+  return `${API_ORIGIN}/uploads/sprites/${speciesId.value}/${stageKey}_idle.png`
 }
 
 function goBack(): void {

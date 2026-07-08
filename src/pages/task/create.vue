@@ -20,7 +20,10 @@
 
       <!-- 任务类型 -->
       <view class="field-group">
-        <text class="field-label">任务类型 <text class="required">*</text></text>
+        <view class="field-label-row">
+          <text class="field-label">任务类型 <text class="required">*</text></text>
+          <text class="type-energy-hint">⚡：宠物的能量值</text>
+        </view>
         <view class="type-grid">
           <view
             v-for="item in taskTypes"
@@ -245,7 +248,7 @@
 
             <button
               class="pwd-submit-btn"
-              :disabled="!isParentPwdValid"
+              :disabled="!isParentPwdValid || parentPwdLoading"
               :loading="parentPwdLoading"
               @click="submitParentPwd"
             >
@@ -428,6 +431,7 @@ const cancelParentPwd = () => {
 
 // P59: 提交家长审核密码设置
 const submitParentPwd = async () => {
+  if (parentPwdLoading.value) return
   if (!isParentPwdValid.value) return
   parentPwdLoading.value = true
   try {
@@ -461,6 +465,7 @@ const selectTemplate = (tpl: TemplateItem) => {
 }
 
 const handleSubmit = async () => {
+  if (submitting.value) return
   if (!taskName.value.trim()) {
     uni.showToast({ title: '请输入任务名称', icon: 'none' })
     return
@@ -541,6 +546,21 @@ const handleSubmit = async () => {
   color: #333333;
   font-weight: 600;
   margin-bottom: 20rpx;
+}
+
+/* 任务类型：label 与能量值说明同行 */
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+.field-label-row .field-label {
+  margin-bottom: 0;
+}
+.type-energy-hint {
+  font-size: 22rpx;
+  color: #999999;
 }
 
 .required {
