@@ -2,7 +2,17 @@
   <view class="page-mine">
     <!-- 用户信息区（审核整改）：未登录显示“点击登录”，已登录显示昵称头像 -->
     <view class="user-card" @click="onUserAreaTap">
-      <image class="user-avatar" :src="userStore.avatar" mode="aspectFill" />
+      <!-- 已登录且有真实头像 → 显示头像；未登录/无头像/加载失败 → 紫色圆形占位（首字/🐾） -->
+      <image
+        v-if="hasAvatar"
+        class="user-avatar"
+        :src="userStore.avatar"
+        mode="aspectFill"
+        @error="onAvatarError"
+      />
+      <view v-else class="user-avatar user-avatar--placeholder">
+        <text class="user-avatar-emoji">{{ avatarPlaceholderText }}</text>
+      </view>
       <view class="user-meta">
         <text class="user-nickname">{{ userStore.isLoggedIn ? userStore.nickname : '点击登录' }}</text>
         <text class="user-sub">{{ userStore.isLoggedIn ? '已登录' : '登录后可添加宝贝、创建任务' }}</text>
@@ -136,16 +146,36 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
+import { ref, computed } from 'vue'
 import { useChildStore } from '@/stores/child'
 import { useUserStore } from '@/stores/user'
 
 const store = useChildStore()
 const userStore = useUserStore()
 
+// 头像加载失败兑底：<image> 报 error 时回退到占位
+const avatarError = ref(false)
+// 是否展示真实头像：已登录 + userInfo.avatar 有值 + 非默认占位图 + 未加载失败
+// （userStore.avatar 计算属性空值时会回退为 /static/default-avatar.png，而该图为 1x1 透明占位，故需排除）
+const hasAvatar = computed(() => {
+  const a = userStore.userInfo?.avatar
+  return userStore.isLoggedIn && !!a && a !== '/static/default-avatar.png' && !avatarError.value
+})
+// 占位文字：已登录取昵称首字，否则🐾
+const avatarPlaceholderText = computed(() => {
+  const n = userStore.nickname
+  if (userStore.isLoggedIn && n && n !== '未登录') return n.charAt(0)
+  return '🐾'
+})
+function onAvatarError() {
+  avatarError.value = true
+}
+
 onShow(() => {
   // 游客态（审核整改）：未登录不拉取用户信息与宝贝列表，保持“点击登录”态。
   // 退出后 userStore 已清空、child store 已 reset，不重新拉取就不会残留旧用户/宝贝信息。
   if (userStore.isLoggedIn) {
+    avatarError.value = false // 重置失败态，使登录后新头像能重试加载
     store.fetchChildList()
   }
 })
@@ -254,6 +284,16 @@ const handleLogout = () => {
   border-radius: 50%;
   background: #EBE0FF;
   flex-shrink: 0;
+}
+.user-avatar--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.user-avatar-emoji {
+  font-size: 48rpx;
+  line-height: 1;
+  color: #5B3E96;
 }
 .user-meta {
   display: flex;

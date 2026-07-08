@@ -65,7 +65,7 @@
 
     <!-- 协议内容底部弹窗:登录页当前页显示,避免 navigateTo 页面栈/时机问题 -->
     <view v-if="showAgreementPopup" class="agreement-popup">
-      <view class="agreement-mask" @tap="closeAgreementPopup"></view>
+      <view class="agreement-mask" @tap="closeAgreementPopup" @touchmove.stop.prevent></view>
       <view class="agreement-panel">
         <view class="agreement-panel-header">
           <text class="agreement-panel-title">{{ agreementType === 'privacy' ? '隐私政策' : '用户协议' }}</text>
@@ -317,11 +317,12 @@ function closeAgreementPopup() {
 /* 协议内容底部弹窗 */
 .agreement-popup { position:fixed; inset:0; z-index:1000; }
 .agreement-mask { position:absolute; inset:0; background:rgba(0,0,0,0.5); }
-.agreement-panel { position:absolute; left:0; right:0; bottom:0; width:100%; max-height:75vh; background:#F5F0FF; border-radius:24rpx 24rpx 0 0; display:flex; flex-direction:column; box-shadow:0 -8rpx 32rpx rgba(0,0,0,0.15); }
+.agreement-panel { position:absolute; left:0; right:0; bottom:0; width:100%; height:80vh; background:#F5F0FF; border-radius:24rpx 24rpx 0 0; display:flex; flex-direction:column; box-shadow:0 -8rpx 32rpx rgba(0,0,0,0.15); }
 .agreement-panel-header { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:28rpx 30rpx 20rpx; border-bottom:2rpx solid rgba(91,62,150,0.1); }
 .agreement-panel-title { font-size:34rpx; font-weight:bold; color:#5B3E96; }
 .agreement-panel-close { font-size:40rpx; color:#999; line-height:1; padding:0 8rpx; }
-.agreement-panel-body { flex:1 1 auto; min-height:0; }
+/* scroll-view 必须有明确高度才能内部纵向滚动；panel 固定 80vh，扣除 header(约90rpx)+footer(约130rpx+安全区)得到正文可滚区高度，保证 header 与 footer 始终可见、可点 */
+.agreement-panel-body { height: calc(80vh - 224rpx - env(safe-area-inset-bottom)); box-sizing:border-box; }
 .agreement-panel-footer { flex:0 0 auto; padding:20rpx 30rpx calc(20rpx + env(safe-area-inset-bottom)); border-top:2rpx solid rgba(91,62,150,0.1); }
 .agreement-panel-btn { width:100%; height:88rpx; line-height:88rpx; text-align:center; background:#5B3E96; color:#fff; font-size:32rpx; font-weight:bold; border-radius:44rpx; }
 </style>
