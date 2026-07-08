@@ -23,7 +23,8 @@ export const useUserStore = defineStore('user', () => {
   const token = ref<string>('');
   const refreshToken = ref<string>('');
   const userInfo = ref<UserInfo | null>(null);
-  const isLoggedIn = ref(false);
+  // 游客模式（审核整改）：登录态以“是否有 token”为准，供页面判断游客/已登录。
+  const isLoggedIn = computed(() => !!token.value);
   const isNewUser = ref(false);
 
   // ============ 计算属性 ============
@@ -54,7 +55,6 @@ export const useUserStore = defineStore('user', () => {
       role: info.role,
       isNewUser: info.isNewUser,
     };
-    isLoggedIn.value = true;
     isNewUser.value = info.isNewUser;
 
     // 持久化存储
@@ -90,7 +90,6 @@ export const useUserStore = defineStore('user', () => {
         token.value = savedToken;
         refreshToken.value = savedRefreshToken || '';
         userInfo.value = JSON.parse(savedUserInfo);
-        isLoggedIn.value = true;
         console.log('[UserStore] 已恢复登录状态:', userInfo.value?.nickname);
         return true;
       }
@@ -140,15 +139,15 @@ export const useUserStore = defineStore('user', () => {
     token.value = '';
     refreshToken.value = '';
     userInfo.value = null;
-    isLoggedIn.value = false;
     isNewUser.value = false;
 
     uni.removeStorageSync(TOKEN_KEY);
     uni.removeStorageSync(REFRESH_TOKEN_KEY);
     uni.removeStorageSync(USER_INFO_KEY);
 
-    uni.reLaunch({ url: '/pages/login/login' });
-    console.log('[UserStore] 已退出登录');
+    // 游客模式（审核整改）：退出后回到任务页以游客态继续浏览，不强制跳登录页。
+    uni.switchTab({ url: '/pages/task/task' });
+    console.log('[UserStore] 已退出登录（游客态）');
   }
 
   /**

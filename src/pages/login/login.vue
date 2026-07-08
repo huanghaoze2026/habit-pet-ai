@@ -8,7 +8,8 @@
       </view>
     </view>
 
-    <view class="login-body">
+    <!-- 步骤1：微信登录（用户主动进入登录页后点击触发） -->
+    <view v-if="!showProfileSetup" class="login-body">
       <button class="wx-login-btn" :loading="isLoading" :disabled="isLoading" @tap="handleWxLogin">
         <image class="wx-icon" src="/static/wechat-icon.png" mode="aspectFit" />
         <text>微信一键登录</text>
@@ -21,94 +22,81 @@
       </view>
       <view v-if="errorMsg" class="error-tip"><text>{{ errorMsg }}</text></view>
     </view>
-    <view class="login-footer"><text class="version">v1.0.1</text></view>
 
-    <!-- 资料填写弹窗 -->
-    <view v-if="showProfileSetup" class="popup-mask" @tap="preventClose">
-      <view class="popup-content" @tap.stop>
-        <view class="popup-header"><text class="popup-title">完善个人资料</text></view>
-        <view class="popup-body">
-          <view class="profile-avatar-section">
-            <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
-              <image v-if="profileForm.avatarUrl" :src="profileForm.avatarUrl" class="avatar-preview" mode="aspectFill" />
-              <view v-else class="avatar-placeholder"><text class="avatar-placeholder-icon">📷</text><text class="avatar-placeholder-text">点击设置头像</text></view>
-            </button>
-          </view>
-          <view class="profile-nickname-section">
-            <text class="profile-label">昵称</text>
-            <input class="profile-nickname-input" type="nickname" v-model="profileForm.nickname" placeholder="点击输入昵称（微信将自动填入）" maxlength="20" @blur="onNicknameBlur" @focus="onNicknameFocus" />
-            <text v-if="!profileForm.nickname" class="profile-nickname-hint">👆 点击输入框，键盘顶部会显示"使用微信昵称"</text>
-          </view>
-          <button class="profile-submit-btn" :class="{'profile-submit-btn--auto':autoCountdown>0}" :disabled="!canSubmit || profileSubmitting" :loading="profileSubmitting" @tap="submitProfile">
-            <text v-if="profileSubmitting">保存中...</text>
-            <text v-else-if="autoCountdown>0">🎉 {{ autoCountdown }}s 后自动进入</text>
-            <text v-else>进入应用</text>
-          </button>
-          <text class="profile-skip" @tap="skipProfile">暂不设置，以后再说</text>
-        </view>
+    <!-- 步骤2：完善资料（登录成功后，作为本次登录动作的一部分，非启动强制弹窗） -->
+    <view v-else class="profile-body">
+      <text class="profile-title">完善资料</text>
+
+      <!-- 头像（可选） -->
+      <view class="profile-avatar-section">
+        <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+          <image v-if="profileForm.avatarUrl" :src="profileForm.avatarUrl" class="avatar-preview" mode="aspectFill" />
+          <view v-else class="avatar-placeholder"><text class="avatar-placeholder-icon">📷</text><text class="avatar-placeholder-text">选择头像</text></view>
+        </button>
       </view>
+
+      <!-- 昵称（微信自动填写） -->
+      <view class="profile-nickname-section">
+        <text class="profile-label">昵称</text>
+        <input class="profile-nickname-input" type="nickname" v-model="profileForm.nickname" placeholder="点击输入，微信会自动填写昵称" maxlength="20" @blur="onNicknameBlur" />
+        <text class="profile-nickname-hint">👆 点击输入框，键盘顶部会显示“使用微信昵称”</text>
+      </view>
+
+      <!-- 手机号授权（可选，拒绝也能继续） -->
+      <button class="phone-btn" :class="{ 'phone-btn--bound': phoneBound }" open-type="getPhoneNumber" @getphonenumber="onGetPhone">
+        <text>{{ phoneBound ? '✓ 手机号已授权' : '授权手机号（可选）' }}</text>
+      </button>
+
+      <button class="profile-submit-btn" :loading="profileSubmitting" :disabled="profileSubmitting" @tap="submitProfile">
+        <text v-if="profileSubmitting">保存中...</text>
+        <text v-else>进入应用</text>
+      </button>
+      <text class="profile-skip" @tap="skipProfile">暂不设置，直接进入</text>
     </view>
+
+    <view class="login-footer"><text class="version">v1.0.1</text></view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onUnmounted } from 'vue'
+import { ref, reactive } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { wxLogin, updateProfile } from '@/services/auth'
+import { api } from '@/services/api'
 import { useUserStore } from '@/stores/user'
 import { tryAcceptPendingInvite, savePendingInviter } from '@/utils/invite'
 
 const userStore = useUserStore()
 const isLoading = ref(false)
 const errorMsg = ref('')
+// 关键：默认 false —— 登录页只有在用户【主动点击微信登录】成功后才展示“完善资料”区，
+// 不会在 App 启动 / 页面 onLoad 时自动弹出。
 const showProfileSetup = ref(false)
 const profileSubmitting = ref(false)
-const autoCountdown = ref(0)
-let countdownTimer: ReturnType<typeof setInterval> | null = null
-
-// P54: 邀请回调
-const redirectAction = ref('')
-const redirectInviter = ref('')
+const phoneBound = ref(false)
 
 onLoad((options: any) => {
-  // 兼容旧的带参回跳：若带了 inviter，同步存入本地存储，后续统一走存储式链路
+  // 仅处理带参回跳（邀请），不做任何自动登录 / 自动弹窗
   if (options?.redirect === 'invite') {
-    redirectAction.value = 'invite'
-    redirectInviter.value = options?.inviter || ''
-    savePendingInviter(redirectInviter.value)
+    savePendingInviter(options?.inviter || '')
   }
 })
 
 const profileForm = reactive({ avatarUrl: '', nickname: '' })
-const canSubmit = computed(() => !!profileForm.nickname.trim())
-
-watch(
-  () => [profileForm.avatarUrl, profileForm.nickname] as const,
-  ([avatar, nickname]) => {
-    if (nickname && nickname.trim() && autoCountdown.value === 0) {
-      autoCountdown.value = 2
-      countdownTimer = setInterval(() => {
-        autoCountdown.value--
-        if (autoCountdown.value <= 0) { clearInterval(countdownTimer!); countdownTimer = null; submitProfile() }
-      }, 1000)
-    }
-  }
-)
-
-onUnmounted(() => { if (countdownTimer) clearInterval(countdownTimer) })
 
 async function goAfterLogin() {
-  // 存储式邀请：若有待处理邀请，登录后自动建好友并进孠物圈
+  // 存储式邀请：若有待处理邀请，登录后自动建好友并进宠物圈
   const pending = uni.getStorageSync('pendingInviterId')
   if (pending) {
-    await tryAcceptPendingInvite(userStore.userId)
+    try { await tryAcceptPendingInvite(userStore.userId) } catch (e) { console.warn('[Login] 处理邀请失败(忽略):', e) }
     uni.switchTab({ url: '/pages/pet-circle/index' })
     return
   }
-  // 无邀请：维持原有跳转任务页
+  // 无邀请：回到任务页（游客/登录态共用的首页）
   uni.switchTab({ url: '/pages/task/task' })
 }
 
+// 微信一键登录：uni.login 拿 code → /auth/wx-login → 存登录态
 async function handleWxLogin() {
   if (isLoading.value) return
   isLoading.value = true; errorMsg.value = ''
@@ -117,36 +105,80 @@ async function handleWxLogin() {
     if (res.code === 200 && res.data) {
       const { token, userId, nickname, avatar, role, isNewUser } = res.data
       userStore.setLoginInfo({ token, userId, nickname: nickname || '', avatar: avatar || '', role, isNewUser })
-      if (isNewUser) { showProfileSetup.value = true; isLoading.value = false; return }
-      goAfterLogin()
-    } else { errorMsg.value = res.message || '登录失败，请重试' }
+      // 预填后端已有的昵称 / 头像（老用户直接复用，无需重复填写）
+      profileForm.nickname = nickname || ''
+      profileForm.avatarUrl = avatar || ''
+      // 登录成功后展示“完善资料”区（作为登录动作的一部分）
+      showProfileSetup.value = true
+    } else {
+      errorMsg.value = res.message || '登录失败，请重试'
+    }
   } catch (e: unknown) {
     const msg = (e as any)?.message || (e as any)?.errMsg || '网络异常，请检查网络后重试'
     errorMsg.value = msg
+  } finally {
+    isLoading.value = false
   }
-  finally { isLoading.value = false }
 }
 
-function onChooseAvatar(e: any) { const { avatarUrl } = e.detail; if (avatarUrl) profileForm.avatarUrl = avatarUrl }
-function onNicknameFocus() { if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; autoCountdown.value = 0 } }
-function onNicknameBlur(e: any) { const v = e.detail?.value || profileForm.nickname; if (v && v.trim() && v !== '微信用户') profileForm.nickname = v.trim() }
+function onChooseAvatar(e: any) {
+  const { avatarUrl } = e.detail
+  if (avatarUrl) profileForm.avatarUrl = avatarUrl
+}
 
-async function submitProfile() {
-  if (!canSubmit.value || profileSubmitting.value) return
-  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
-  autoCountdown.value = 0; profileSubmitting.value = true
+function onNicknameBlur(e: any) {
+  const v = e.detail?.value || profileForm.nickname
+  if (v && v.trim() && v !== '微信用户') profileForm.nickname = v.trim()
+}
+
+// 手机号授权（可选）：拿 e.detail.code → /auth/bind-phone。
+// 用户点“拒绝”或失败 → 静默跳过，不影响登录、不报错、可继续。
+async function onGetPhone(e: any) {
+  const code = e?.detail?.code
+  if (!code) {
+    // 用户拒绝授权 / 未拿到 code —— 静默跳过
+    console.log('[Login] 用户未授权手机号，跳过')
+    return
+  }
   try {
-    await updateProfile({ nickname: profileForm.nickname, avatar: profileForm.avatarUrl })
-    if (userStore.userInfo) userStore.updateUserInfo({ nickname: profileForm.nickname, avatar: profileForm.avatarUrl })
-    showProfileSetup.value = false
-    goAfterLogin()
-  } catch { uni.showToast({ title: '保存失败，请重试', icon: 'none' }) }
-  finally { profileSubmitting.value = false }
+    await api.post('/auth/bind-phone', { code })
+    phoneBound.value = true
+    uni.showToast({ title: '手机号已授权', icon: 'none' })
+  } catch (err) {
+    // 绑定失败静默处理，不打断登录流程
+    console.warn('[Login] 绑定手机号失败(忽略):', err)
+  }
 }
 
-function skipProfile() { if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null } showProfileSetup.value = false; goAfterLogin() }
-function preventClose() {}
-function showAgreement(type: string) { uni.navigateTo({ url: type === 'privacy' ? '/pages/privacy/privacy' : '/pages/terms/terms' }) }
+// 完成：保存昵称/头像（有则存），然后进入应用；允许“暂不设置”直接进入。
+async function submitProfile() {
+  if (profileSubmitting.value) return
+  profileSubmitting.value = true
+  try {
+    const payload: { nickname?: string; avatar?: string } = {}
+    if (profileForm.nickname && profileForm.nickname.trim()) payload.nickname = profileForm.nickname.trim()
+    if (profileForm.avatarUrl) payload.avatar = profileForm.avatarUrl
+    if (payload.nickname || payload.avatar) {
+      await updateProfile(payload)
+      if (userStore.userInfo) {
+        userStore.updateUserInfo({
+          nickname: payload.nickname ?? userStore.userInfo.nickname,
+          avatar: payload.avatar ?? userStore.userInfo.avatar,
+        })
+      }
+    }
+    await goAfterLogin()
+  } catch {
+    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+  } finally {
+    profileSubmitting.value = false
+  }
+}
+
+function skipProfile() { goAfterLogin() }
+function showAgreement(type: string) {
+  uni.navigateTo({ url: type === 'privacy' ? '/pages/privacy/privacy' : '/pages/terms/terms' })
+}
 </script>
 
 <style scoped>
@@ -166,11 +198,10 @@ function showAgreement(type: string) { uni.navigateTo({ url: type === 'privacy' 
 .error-tip { margin-top:24rpx; padding:16rpx 32rpx; background:rgba(255,59,48,0.1); border-radius:12rpx; font-size:24rpx; color:#FF3B30; text-align:center; }
 .login-footer { position:absolute; bottom:60rpx; }
 .version { font-size:22rpx; color:#CCC; }
-.popup-mask { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:999; display:flex; align-items:center; justify-content:center; padding:40rpx; }
-.popup-content { width:100%; max-width:560rpx; background:#fff; border-radius:24rpx; padding:48rpx 36rpx 36rpx; display:flex; flex-direction:column; align-items:center; }
-.popup-header { margin-bottom:36rpx; }
-.popup-title { font-size:34rpx; font-weight:bold; color:#333; }
-.popup-body { width:100%; display:flex; flex-direction:column; align-items:center; gap:32rpx; }
+
+/* 完善资料区（登录成功后内联展示，非启动弹窗） */
+.profile-body { width:100%; max-width:560rpx; background:#fff; border-radius:24rpx; padding:48rpx 36rpx 36rpx; display:flex; flex-direction:column; align-items:center; gap:32rpx; box-shadow:0 8rpx 32rpx rgba(91,62,150,0.12); }
+.profile-title { font-size:34rpx; font-weight:bold; color:#333; }
 .profile-avatar-section { display:flex; justify-content:center; }
 .avatar-btn { width:160rpx; height:160rpx; border-radius:50%; overflow:hidden; padding:0; margin:0; border:4rpx dashed #D4C5F0; background:#F8F8F8; display:flex; align-items:center; justify-content:center; }
 .avatar-btn::after { border:none; }
@@ -183,9 +214,11 @@ function showAgreement(type: string) { uni.navigateTo({ url: type === 'privacy' 
 .profile-nickname-input { width:100%; height:80rpx; border:2rpx solid #E0E0E0; border-radius:12rpx; padding:0 24rpx; font-size:28rpx; color:#333; box-sizing:border-box; }
 .profile-nickname-input:focus { border-color:#5B3E96; }
 .profile-nickname-hint { font-size:22rpx; color:#5B3E96; padding-left:4rpx; }
-.profile-submit-btn { width:100%; height:88rpx; line-height:88rpx; background:#5B3E96; color:#fff; font-size:32rpx; font-weight:bold; border-radius:44rpx; border:none; transition:all 0.3s; }
+.phone-btn { width:100%; height:80rpx; line-height:80rpx; background:#F5F0FF; color:#5B3E96; font-size:28rpx; font-weight:600; border-radius:44rpx; border:2rpx solid #D4C5F0; }
+.phone-btn::after { border:none; }
+.phone-btn--bound { background:#E8F5E9; color:#2E7D32; border-color:#A5D6A7; }
+.profile-submit-btn { width:100%; height:88rpx; line-height:88rpx; background:#5B3E96; color:#fff; font-size:32rpx; font-weight:bold; border-radius:44rpx; border:none; }
 .profile-submit-btn::after { border:none; }
 .profile-submit-btn[disabled] { background:#CCC; }
-.profile-submit-btn--auto { background:#4CAF50; }
 .profile-skip { font-size:24rpx; color:#999; text-decoration:underline; }
 </style>

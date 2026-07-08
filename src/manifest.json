@@ -63,14 +63,10 @@
         "usingComponents" : true,
         "lazyCodeLoading" : "requiredComponents",
         "permission" : {
-            "scope.userLocation": {
-                "desc": "你的位置信息将用于小程序位置接口的效果展示"
-            },
             "scope.record": {
                 "desc": "需要您的麦克风权限以实现与 AI 宠物的实时语音通话"
             }
-        },
-        "requiredPrivateInfos": ["getLocation", "chooseAddress"]
+        }
     },
     "mp-alipay" : {
         "usingComponents" : true

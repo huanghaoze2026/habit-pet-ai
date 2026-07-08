@@ -363,7 +363,7 @@ onShow(() => {
 const onShareAppMessage = () => {
   const uid = uni.getStorageSync('habitpet_user')
   const userId = uid ? JSON.parse(uid).userId : ''
-  return { title:'邀你来好习惯养宠！', path:`/pages/invite/accept?inviter=${userId}`, imageUrl:'https://api.lanyunke.com/uploads/share/invite_card.png' }
+  return { title:'邀你来好习惯养宠！', path:`/pages/invite/accept?inviter=${userId}`, imageUrl:'/static/share-cover.jpg' }
 }
 
 uni.$on('task:refresh', () => refreshCurrentChild())
@@ -383,8 +383,18 @@ const handleInvite = () => {
   if (!uid) { uni.showToast({ title:'请先登录', icon:'none' }); return }
   uni.setClipboardData({ data:`pages/invite/accept?inviter=${uid}`, success:()=>uni.showToast({ title:'邀请链接已复制', icon:'none' }) })
 }
-const goAddChild = () => uni.navigateTo({ url: '/pages/parent/children/add' })
-const goCreateTask = () => uni.navigateTo({ url: '/pages/task/create' })
+// 游客模式（审核整改）：需要账号的操作（加宝贝/创建任务）先判登录态。
+// 未登录 → toast 提示后主动跳登录页；已登录 → 行为不变。
+function ensureLoginThen(action: () => void) {
+  if (!userStore.isLoggedIn) {
+    uni.showToast({ title: '登录后使用', icon: 'none' })
+    setTimeout(() => uni.navigateTo({ url: '/pages/login/login' }), 600)
+    return
+  }
+  action()
+}
+const goAddChild = () => ensureLoginThen(() => uni.navigateTo({ url: '/pages/parent/children/add' }))
+const goCreateTask = () => ensureLoginThen(() => uni.navigateTo({ url: '/pages/task/create' }))
 const goDetail = (t: Task) => uni.navigateTo({ url: '/pages/task/detail?id=' + t.id })
 
 const completeTask = async (task: Task) => {

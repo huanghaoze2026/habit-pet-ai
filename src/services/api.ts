@@ -42,8 +42,9 @@ const request = <T = any>(
           resolve(body)
         } else {
           if (body.code === 401 && !skipAuth) {
+            // 游客模式（审核整改）：登录态失效时【不】再强制跳登录页。
+            // 仅清除本地 token，然后 reject 交由调用方处理（页面据此展示游客/空态）。
             uni.removeStorageSync(TOKEN_KEY)
-            uni.reLaunch({ url: '/pages/login/login' })
           }
           reject(body)
         }

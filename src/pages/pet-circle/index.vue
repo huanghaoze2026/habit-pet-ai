@@ -85,7 +85,7 @@ onShareAppMessage(() => {
   return {
     title: '邀请你加入我的宠物圈',
     path: `/pages/invite/accept?inviter=${uid}`,
-    imageUrl: 'https://api.lanyunke.com/uploads/share/invite_card.png',
+    imageUrl: '/static/share-cover.jpg',
   }
 })
 

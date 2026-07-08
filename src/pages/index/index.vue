@@ -10,19 +10,15 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
-import { TOKEN_KEY } from '@/utils/constants'
 
-// P59: 简化启动逻辑，避免 wxLogin() 阻塞导致白屏
+// 审核整改（案例3）：真·游客模式。
+// 启动首屏不做任何自动登录、不弹授权、不跳登录页。
+// 无论有没有 token，都以当前身份直接进入任务页浏览：
+//   - 有 token：登录态浏览
+//   - 无 token：游客态浏览（接口拿空态即可，页面不会被弹去登录）
+// 登录改由用户在"我的"或任务操作时【主动触发】。
 onShow(() => {
-  const token = uni.getStorageSync(TOKEN_KEY)
-  
-  if (token) {
-    // 有缓存的 token，直接进入任务页（不等待 wxLogin 避免阻塞）
-    uni.switchTab({ url: '/pages/task/task' })
-  } else {
-    // 无 token → 跳转登录页
-    uni.redirectTo({ url: '/pages/login/login' })
-  }
+  uni.switchTab({ url: '/pages/task/task' })
 })
 </script>
 

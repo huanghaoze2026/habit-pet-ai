@@ -1,5 +1,15 @@
 <template>
   <view class="page-mine">
+    <!-- 用户信息区（审核整改）：未登录显示“点击登录”，已登录显示昵称头像 -->
+    <view class="user-card" @click="onUserAreaTap">
+      <image class="user-avatar" :src="userStore.avatar" mode="aspectFill" />
+      <view class="user-meta">
+        <text class="user-nickname">{{ userStore.isLoggedIn ? userStore.nickname : '点击登录' }}</text>
+        <text class="user-sub">{{ userStore.isLoggedIn ? '已登录' : '登录后可添加宝贝、创建任务' }}</text>
+      </view>
+      <text v-if="!userStore.isLoggedIn" class="user-login-arrow">›</text>
+    </view>
+
     <!-- 我的宝贝卡片 -->
     <view class="card baby-card">
       <view class="card-title">我的宝贝</view>
@@ -70,6 +80,7 @@
         <text class="menu-arrow">›</text>
       </view>
       <view class="menu-divider" />
+      <!-- 审核整改：虚拟支付未接入官方能力，先隐藏购买入口，后续接入官方虚拟支付后放开
       <view class="menu-item" @click="goPricing">
         <view class="menu-left">
           <text class="menu-text">购买对话能量</text>
@@ -77,6 +88,7 @@
         <text class="menu-arrow">›</text>
       </view>
       <view class="menu-divider" />
+      -->
       <view class="menu-item" @click="goSettings">
         <view class="menu-left">
           <text class="menu-text">设置</text>
@@ -112,7 +124,7 @@
         <text class="menu-arrow">›</text>
       </view>
       <view class="menu-divider" />
-      <view class="menu-item menu-item--logout" @click="handleLogout">
+      <view class="menu-item menu-item--logout" v-if="userStore.isLoggedIn" @click="handleLogout">
         <view class="menu-left">
           <text class="menu-text logout-text">退出登录</text>
         </view>
@@ -135,7 +147,18 @@ onShow(() => {
 })
 
 const goAddChild = () => {
+  // 游客模式（审核整改）：未登录先主动去登录
+  if (!userStore.isLoggedIn) {
+    uni.showToast({ title: '登录后使用', icon: 'none' })
+    setTimeout(() => uni.navigateTo({ url: '/pages/login/login' }), 600)
+    return
+  }
   uni.navigateTo({ url: '/pages/parent/children/add' })
+}
+
+// 未登录时点击顶部用户区 → 主动进入登录页
+const onUserAreaTap = () => {
+  if (!userStore.isLoggedIn) uni.navigateTo({ url: '/pages/login/login' })
 }
 
 const openGuide = () => {
@@ -206,6 +229,50 @@ const handleLogout = () => {
   min-height: 100vh;
   background: linear-gradient(180deg, #F5F0FF, #EBE0FF);
   padding-bottom: 40rpx;
+}
+
+/* 用户信息区 */
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  margin: 24rpx 24rpx 0;
+  padding: 32rpx 24rpx;
+}
+.user-card:active {
+  background: #F5F5F5;
+}
+.user-avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: #EBE0FF;
+  flex-shrink: 0;
+}
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  flex: 1;
+  min-width: 0;
+}
+.user-nickname {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-sub {
+  font-size: 24rpx;
+  color: #999;
+}
+.user-login-arrow {
+  font-size: 40rpx;
+  color: #CCC;
 }
 
 /* 我的宝贝卡片 */
