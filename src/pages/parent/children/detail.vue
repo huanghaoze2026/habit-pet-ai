@@ -48,7 +48,8 @@
       <!-- 收起状态：简要信息 -->
       <view v-if="!showPetExpanded && petInfo" class="info-row pet-row" @click="showPetExpanded = true">
         <view class="pet-left">
-          <text class="pet-icon">{{ petEmoji }}</text>
+          <image v-if="petSpriteUrl && !petSpriteError" :src="petSpriteUrl" class="pet-avatar-img" mode="aspectFit" @error="petSpriteError = true" />
+          <text v-else class="pet-icon">{{ petEmoji }}</text>
           <text class="value">{{ petInfo.petName || petInfo.speciesName || child.speciesName }}</text>
           <text class="pet-level">Lv.{{ petInfo.level || 1 }}</text>
         </view>
@@ -232,6 +233,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { api } from '@/services/api'
 import { useChildStore } from '@/stores/child'
+import { API_ORIGIN } from '@/utils/env'
 
 const store = useChildStore()
 
@@ -324,6 +326,15 @@ const SPECIES_EMOJI: Record<string, string> = {
 const petEmoji = computed(() => {
   const sid = petDetail.value?.speciesId || child.value?.petSpeciesId
   return sid ? SPECIES_EMOJI[sid] || '🐾' : '🐾'
+})
+
+// 当前宠物当前形态的精灵图（与 pet.vue 一致）
+const SPRITE_BASE = `${API_ORIGIN}/uploads/sprites`
+const petSpriteError = ref(false)
+const petSpriteUrl = computed(() => {
+  const sid = petDetail.value?.speciesId || (child.value as any)?.petSpeciesId
+  const stage = petDetail.value?.stage || 'baby'
+  return sid ? `${SPRITE_BASE}/${sid}/${stage}_idle.png?v=20260630161700` : ''
 })
 
 const upgradePercent = computed(() => {
@@ -619,6 +630,13 @@ const confirmDeleteChild = () => {
 
 .pet-icon {
   font-size: 40rpx;
+}
+
+.pet-avatar-img {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: rgba(123, 94, 167, 0.08);
 }
 
 .pet-right {

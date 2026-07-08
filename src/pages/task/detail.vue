@@ -1,13 +1,5 @@
 <template>
   <view class="page-detail">
-    <!-- 顶部返回 -->
-    <view class="detail-header">
-      <view class="back-btn" @click="goBack">
-        <text class="back-icon">←</text>
-        <text class="back-text">返回</text>
-      </view>
-    </view>
-
     <!-- 任务详情卡片 -->
     <view class="detail-card" v-if="task">
       <view class="detail-row">
@@ -182,8 +174,6 @@ const previewImage = (url: string) => {
   uni.previewImage({ current: url, urls: [url] })
 }
 
-const goBack = () => uni.navigateBack()
-
 const handleComplete = async () => {
   if (!task.value) return
   if (submitting.value) return
@@ -233,27 +223,6 @@ const handleComplete = async () => {
   min-height: 100vh;
   background: linear-gradient(180deg, #F5F0FF, #EBE0FF);
   padding-bottom: 160rpx;
-}
-
-.detail-header {
-  padding: 24rpx 28rpx;
-}
-
-.back-btn {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-}
-
-.back-icon {
-  font-size: 32rpx;
-  color: #333;
-  font-weight: bold;
-}
-
-.back-text {
-  font-size: 28rpx;
-  color: #333;
 }
 
 .detail-card {
