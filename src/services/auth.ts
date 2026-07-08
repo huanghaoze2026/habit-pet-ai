@@ -73,13 +73,25 @@ export async function updateProfile(data: { nickname?: string; avatar?: string; 
 /**
  * P59: 上传头像到服务器
  */
+// 压缩本地图片（主要对 jpg 有效；失败退回原图，不阻断上传）
+async function compressForUpload(src: string): Promise<string> {
+  try {
+    const r: any = await uni.compressImage({ src, quality: 70 })
+    return r?.tempFilePath || src
+  } catch {
+    return src
+  }
+}
+
 async function uploadAvatar(filePath: string): Promise<string> {
   const baseUrl = API_BASE
   const token = uni.getStorageSync('habitpet_token') || ''
+  // 上传前先压缩，避免手机原图数 MB 上传缓慢
+  const compressedPath = await compressForUpload(filePath)
   return new Promise((resolve, reject) => {
     uni.uploadFile({
       url: `${baseUrl}/auth/upload-avatar`,
-      filePath,
+      filePath: compressedPath,
       name: 'avatar',
       header: { Authorization: `Bearer ${token}` },
       success: (res) => {

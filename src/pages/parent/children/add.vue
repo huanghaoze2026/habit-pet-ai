@@ -253,20 +253,32 @@ function previewAvatar(): void {
   }
 }
 
-// 上传头像到服务器
-function uploadAvatar(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!avatarUrl.value) {
-      return resolve('');
-    }
-    if (uploadedAvatarUrl.value) {
-      return resolve(uploadedAvatarUrl.value);
-    }
+// 压缩本地图片（主要对 jpg 有效；失败退回原图，不阻断上传）
+async function compressForUpload(src: string): Promise<string> {
+  try {
+    const r: any = await uni.compressImage({ src, quality: 70 });
+    return r?.tempFilePath || src;
+  } catch {
+    return src;
+  }
+}
 
-    const token = uni.getStorageSync('habitpet_token') || '';
+// 上传头像到服务器
+async function uploadAvatar(): Promise<string> {
+  if (!avatarUrl.value) {
+    return '';
+  }
+  if (uploadedAvatarUrl.value) {
+    return uploadedAvatarUrl.value;
+  }
+
+  // 上传前先压缩，避免手机原图数 MB 上传缓慢
+  const filePath = await compressForUpload(avatarUrl.value);
+  const token = uni.getStorageSync('habitpet_token') || '';
+  return new Promise((resolve, reject) => {
     uni.uploadFile({
       url: `${BASE_URL}/parent/upload-avatar`,
-      filePath: avatarUrl.value,
+      filePath,
       name: 'avatar',
       header: { Authorization: `Bearer ${token}` },
       success: (res) => {
@@ -293,6 +305,7 @@ async function handleSubmit(): Promise<void> {
   if (!canSubmit.value || isSubmitting.value) return;
 
   isSubmitting.value = true;
+  uni.showLoading({ title: '保存中...', mask: true });
   try {
     const params: AddChildParams = {
       nickname: form.nickname.trim(),
@@ -311,6 +324,7 @@ async function handleSubmit(): Promise<void> {
     if (newChild?.id) {
       store.switchToChild(newChild.id);
     }
+    uni.hideLoading();
     uni.showToast({ title: '添加成功', icon: 'success', duration: 1500 });
     setTimeout(() => {
       isSubmitting.value = false;
@@ -319,6 +333,7 @@ async function handleSubmit(): Promise<void> {
     }, 1000);
   } catch (e: unknown) {
     console.error('[AddChild] 添加失败:', e);
+    uni.hideLoading();
     isSubmitting.value = false;
     uni.showToast({ title: '添加失败，请重试', icon: 'none' });
   }

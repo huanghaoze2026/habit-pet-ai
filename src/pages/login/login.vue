@@ -62,6 +62,24 @@
     </view>
 
     <view class="login-footer"><text class="version">v1.0.1</text></view>
+
+    <!-- 协议内容底部弹窗:登录页当前页显示,避免 navigateTo 页面栈/时机问题 -->
+    <view v-if="showAgreementPopup" class="agreement-popup">
+      <view class="agreement-mask" @tap="closeAgreementPopup"></view>
+      <view class="agreement-panel">
+        <view class="agreement-panel-header">
+          <text class="agreement-panel-title">{{ agreementType === 'privacy' ? '隐私政策' : '用户协议' }}</text>
+          <text class="agreement-panel-close" @tap="closeAgreementPopup">✕</text>
+        </view>
+        <scroll-view scroll-y class="agreement-panel-body">
+          <PrivacyContent v-if="agreementType === 'privacy'" />
+          <TermsContent v-else />
+        </scroll-view>
+        <view class="agreement-panel-footer">
+          <view class="agreement-panel-btn" @tap="closeAgreementPopup">我知道了</view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -72,6 +90,8 @@ import { wxLogin, updateProfile } from '@/services/auth'
 import { api } from '@/services/api'
 import { useUserStore } from '@/stores/user'
 import { tryAcceptPendingInvite, savePendingInviter } from '@/utils/invite'
+import PrivacyContent from '@/components/PrivacyContent.vue'
+import TermsContent from '@/components/TermsContent.vue'
 
 const userStore = useUserStore()
 const isLoading = ref(false)
@@ -83,6 +103,9 @@ const profileSubmitting = ref(false)
 const phoneBound = ref(false)
 // 协议勾选框状态（默认不勾选，需用户主动勾选同意后才能登录）
 const agreed = ref(false)
+// 协议内容弹窗状态：点击《隐私政策》/《用户协议》时在当前页底部弹窗展示
+const showAgreementPopup = ref(false)
+const agreementType = ref('privacy')
 
 onLoad((options: any) => {
   // 仅处理带参回跳(邀请),不做任何自动登录 / 自动弹窗
@@ -234,14 +257,15 @@ async function submitProfile() {
   }
 }
 
+// 点击《隐私政策》/《用户协议》链接：改为在登录页当前页底部弹窗展示，
+// 避免 uni.navigateTo 在登录页页面栈/时机下打不开（只闪一下看不到内容）的问题。
 function showAgreement(type: string) {
-  uni.navigateTo({
-    url: type === 'privacy' ? '/pages/privacy/privacy' : '/pages/terms/terms',
-    fail: (e) => {
-      console.error('[Login] 打开协议失败', e)
-      uni.showToast({ title: '打开失败，请重试', icon: 'none' })
-    }
-  })
+  agreementType.value = type
+  showAgreementPopup.value = true
+}
+
+function closeAgreementPopup() {
+  showAgreementPopup.value = false
 }
 </script>
 
@@ -289,4 +313,15 @@ function showAgreement(type: string) {
 .profile-submit-btn { width:100%; height:88rpx; line-height:88rpx; background:#5B3E96; color:#fff; font-size:32rpx; font-weight:bold; border-radius:44rpx; border:none; }
 .profile-submit-btn::after { border:none; }
 .profile-submit-btn[disabled] { background:#CCC; }
+
+/* 协议内容底部弹窗 */
+.agreement-popup { position:fixed; inset:0; z-index:1000; }
+.agreement-mask { position:absolute; inset:0; background:rgba(0,0,0,0.5); }
+.agreement-panel { position:absolute; left:0; right:0; bottom:0; width:100%; max-height:75vh; background:#F5F0FF; border-radius:24rpx 24rpx 0 0; display:flex; flex-direction:column; box-shadow:0 -8rpx 32rpx rgba(0,0,0,0.15); }
+.agreement-panel-header { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:28rpx 30rpx 20rpx; border-bottom:2rpx solid rgba(91,62,150,0.1); }
+.agreement-panel-title { font-size:34rpx; font-weight:bold; color:#5B3E96; }
+.agreement-panel-close { font-size:40rpx; color:#999; line-height:1; padding:0 8rpx; }
+.agreement-panel-body { flex:1 1 auto; min-height:0; }
+.agreement-panel-footer { flex:0 0 auto; padding:20rpx 30rpx calc(20rpx + env(safe-area-inset-bottom)); border-top:2rpx solid rgba(91,62,150,0.1); }
+.agreement-panel-btn { width:100%; height:88rpx; line-height:88rpx; text-align:center; background:#5B3E96; color:#fff; font-size:32rpx; font-weight:bold; border-radius:44rpx; }
 </style>
