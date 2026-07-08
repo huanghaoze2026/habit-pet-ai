@@ -817,14 +817,35 @@ let pcmPlayer: any = null
 // 改为 wx.createWebAudioContext() 用 AudioBufferSourceNode 按时间轴无缝拼接;
 // 低版本基础库(无 createWebAudioContext) 自动回退到旧文件式路径。
 const useWebAudio = typeof (wx as any).createWebAudioContext === 'function'
+  || typeof (uni as any).createWebAudioContext === 'function'
+let webAudioUnavailable = false                 // 运行期 WebAudio 创建/播放失败后置真, 后续直接走文件回退
+let pcmLastPath: 'webaudio' | 'file' | '' = ''  // 仅用于诊断日志: 当前实际走的播放路径
+let fallbackPrimeTimer: ReturnType<typeof setTimeout> | null = null  // 文件回退: 首段攒缓冲定时器
 let webAudioCtx: any = null
 let nextStartTime = 0
 let activeSources: any[] = []
 
+// 🔍 诊断: 打印 WebAudio 探测结果, 便于真机确认走哪条路径
+try {
+  console.log('[P70][audio] detect useWebAudio=', useWebAudio,
+    '| wx.createWebAudioContext=', typeof (wx as any).createWebAudioContext,
+    '| uni.createWebAudioContext=', typeof (uni as any).createWebAudioContext)
+} catch {}
+
 function ensureWebAudioCtx(): any {
   if (!webAudioCtx) {
-    webAudioCtx = (wx as any).createWebAudioContext()
+    if (typeof (wx as any).createWebAudioContext === 'function') {
+      webAudioCtx = (wx as any).createWebAudioContext()
+    } else if (typeof (uni as any).createWebAudioContext === 'function') {
+      webAudioCtx = (uni as any).createWebAudioContext()
+    } else {
+      throw new Error('WebAudioContext unavailable')
+    }
     nextStartTime = 0
+    try {
+      console.log('[P70][audio] createWebAudioContext ok, SDKVersion=',
+        (wx as any).getSystemInfoSync ? (wx as any).getSystemInfoSync().SDKVersion : 'n/a')
+    } catch {}
   }
   return webAudioCtx
 }
@@ -900,8 +921,11 @@ function stopAllAudio() {
     try { pcmPlayer.destroy() } catch {}
     pcmPlayer = null
   }
+  // 清理文件回退的首段攒缓定时器
+  if (fallbackPrimeTimer) { clearTimeout(fallbackPrimeTimer); fallbackPrimeTimer = null }
   pcmBufferQueue.length = 0
   isPlayingPcm = false
+  pcmLastPath = ''
 }
 
 // ========== WebSocket 连接 ==========
@@ -1106,12 +1130,13 @@ function stopMicrophone() {
 
 // ========== PCM 音频播放 ==========
 function handlePcmAudio(pcmData: ArrayBuffer, sampleRate: number = 24000) {
-  // 半双工防回声：只要有宠物音频到达/播放，其后 700ms 内静音麦克风推流(覆盖 0.4s 抖动缓冲+尾包)
+  // 半双工防回声：只要有宠物音频到达/播放，其后 700ms 内静音麦克风推流(覆盖抖动缓冲+尾包)
   petAudioGuardUntil = Date.now() + 700
-  // 低版本基础库: 回退到旧文件式顺序播放
-  if (!useWebAudio) {
+  // 无 WebAudio(低版本基础库) 或运行期失败: 走文件式回退(合并缓冲, 见 scheduleFallbackPlayback)
+  if (!useWebAudio || webAudioUnavailable) {
+    if (pcmLastPath !== 'file') { console.log('[P70][audio] path=file-fallback(merged buffer)'); pcmLastPath = 'file' }
     pcmBufferQueue.push({ data: pcmData, sampleRate })
-    if (!isPlayingPcm) playNextPcm()
+    scheduleFallbackPlayback()
     return
   }
 
@@ -1119,6 +1144,7 @@ function handlePcmAudio(pcmData: ArrayBuffer, sampleRate: number = 24000) {
   // WebAudioContext 链式排程: Int16 PCM → Float32 → AudioBuffer，按抖动缓冲策略排程
   try {
     const ctx = ensureWebAudioCtx()
+    if (pcmLastPath !== 'webaudio') { console.log('[P70][audio] path=webaudio(seamless schedule)'); pcmLastPath = 'webaudio' }
 
     // 字节数应为偶数; 奇数做防护截断
     const usableBytes = pcmData.byteLength - (pcmData.byteLength % 2)
@@ -1138,16 +1164,22 @@ function handlePcmAudio(pcmData: ArrayBuffer, sampleRate: number = 24000) {
     source.buffer = buffer
     source.connect(ctx.destination)
 
-    // P69-抖动缓冲 + 杜绝空隙:
-    //   - nextStartTime == 0 (首包/挂断后重建) → 垫 PRIME_LEAD_SEC 建立缓冲
-    //   - nextStartTime 落后/接近 currentTime (欠载/管线空闲) → 垫 PRIME_LEAD_SEC
-    //   - 否则 → 无缝衔接下一包
-    // 这样首包和每次欠载都重建 ~0.4s 缓冲，连续流畅段保持无缝。
-    // nextStartTime 只增不倒退，不会把 source 排到过去时间点。
-    const PRIME_LEAD_SEC = 0.8
+    // P70-自适应抖动缓冲:
+    //   首包(nextStartTime==0)          → 建立较大初始缓冲 FIRST_PRIME_SEC
+    //   欠载(排程已追上/落后 currentTime) → 重建较小缓冲 REPRIME_SEC
+    //   连续段                          → 直接衔接 nextStartTime(无缝、不重排)
+    // nextStartTime 只增不倒退, 避免把 source 排到过去时间点造成断续。
+    const FIRST_PRIME_SEC = 0.6
+    const REPRIME_SEC = 0.4
     const ctxNow = ctx.currentTime
-    const isIdleOrUnderrun = nextStartTime === 0 || nextStartTime <= ctxNow + 0.02
-    const startAt = isIdleOrUnderrun ? ctxNow + PRIME_LEAD_SEC : nextStartTime
+    let startAt: number
+    if (nextStartTime === 0) {
+      startAt = ctxNow + FIRST_PRIME_SEC
+    } else if (nextStartTime <= ctxNow + 0.02) {
+      startAt = ctxNow + REPRIME_SEC
+    } else {
+      startAt = nextStartTime
+    }
     source.start(startAt)
     nextStartTime = startAt + buffer.duration
 
@@ -1157,9 +1189,12 @@ function handlePcmAudio(pcmData: ArrayBuffer, sampleRate: number = 24000) {
       if (idx >= 0) activeSources.splice(idx, 1)
     }
   } catch (e) {
-    // WebAudio 异常 → 兜底走文件式路径
+    // WebAudio 异常 → 标记不可用, 兜底走文件式路径(后续直接走回退, 不再逐包重试)
+    webAudioUnavailable = true
+    try { console.warn('[P70][audio] WebAudio failed, fallback to file path:', (e as any) && (e as any).message) } catch {}
+    pcmLastPath = 'file'
     pcmBufferQueue.push({ data: pcmData, sampleRate })
-    if (!isPlayingPcm) playNextPcm()
+    scheduleFallbackPlayback()
   }
 }
 
@@ -1204,20 +1239,61 @@ function decodeBase64(input: string): string {
   return output
 }
 
-function playNextPcm() {
-  if (pcmBufferQueue.length === 0) {
-    isPlayingPcm = false
-    return
+// ===== 文件式回退: 合并缓冲播放(替代逐块 WAV+InnerAudioContext, 消除逐字断续) =====
+// 思路: 把队列里已到达的多个 PCM 碎包拼接成较大一段再转一个 WAV 播放,
+// 显著减少 InnerAudioContext 建实例次数与段间空隙。首段先攒够最小缓冲再开播,
+// 连续段在上一段 onEnded 时把期间攒下的碎包全部合并续播(无需再等 prime)。
+const FALLBACK_MIN_PRIME_SEC = 0.4   // 首段先攒够 ~0.4s 再开播, 避免逐字
+const FALLBACK_PRIME_WAIT_MS = 200   // 但最多等 200ms, 控制首字延迟
+
+// 估算当前队列已缓存 PCM 的时长(16-bit mono)
+function queuedPcmDurationSec(): number {
+  let bytes = 0
+  let sr = 24000
+  for (const it of pcmBufferQueue) { bytes += it.data.byteLength; sr = it.sampleRate || sr }
+  return sr > 0 ? bytes / 2 / sr : 0
+}
+
+// 合并队首连续、同采样率的碎包为一段较大 PCM(遇到采样率变化则切断, 保证顺序不丢包)
+function drainMergedPcm(): { data: ArrayBuffer; sampleRate: number } | null {
+  if (pcmBufferQueue.length === 0) return null
+  const sampleRate = pcmBufferQueue[0].sampleRate || 24000
+  let total = 0
+  const parts: ArrayBuffer[] = []
+  while (pcmBufferQueue.length > 0 && (pcmBufferQueue[0].sampleRate || 24000) === sampleRate) {
+    const it = pcmBufferQueue.shift()!
+    parts.push(it.data)
+    total += it.data.byteLength
   }
+  const merged = new Uint8Array(total)
+  let off = 0
+  for (const p of parts) { merged.set(new Uint8Array(p), off); off += p.byteLength }
+  return { data: merged.buffer, sampleRate }
+}
+
+// 入队后调度回退播放: 正在播则由 onEnded 续播; 空闲则(攒够/超时后)开播
+function scheduleFallbackPlayback() {
+  if (isPlayingPcm) return
+  if (fallbackPrimeTimer) return
+  if (pcmBufferQueue.length === 0) return
+  if (queuedPcmDurationSec() >= FALLBACK_MIN_PRIME_SEC) {
+    startMergedPcmPlayback()
+  } else {
+    fallbackPrimeTimer = setTimeout(() => {
+      fallbackPrimeTimer = null
+      if (!isPlayingPcm) startMergedPcmPlayback()
+    }, FALLBACK_PRIME_WAIT_MS)
+  }
+}
+
+function startMergedPcmPlayback() {
+  if (fallbackPrimeTimer) { clearTimeout(fallbackPrimeTimer); fallbackPrimeTimer = null }
+  const seg = drainMergedPcm()
+  if (!seg) { isPlayingPcm = false; return }
   isPlayingPcm = true
-  const item = pcmBufferQueue.shift()!
 
-  // PCM 16bit, mono → WAV 后播放(采样率从 mimeType 推断)
-  const sampleRate = item.sampleRate || 24000
-  const numChannels = 1
-  const bitsPerSample = 16
-  const wavBuffer = pcmToWav(item.data, sampleRate, numChannels, bitsPerSample)
-
+  // PCM 16bit mono → WAV 后播放(采样率从 mimeType 推断)
+  const wavBuffer = pcmToWav(seg.data, seg.sampleRate, 1, 16)
   const fs = uni.getFileSystemManager()
   const filePath = `${wx.env.USER_DATA_PATH}/pcm_${Date.now()}.wav`
 
@@ -1226,22 +1302,30 @@ function playNextPcm() {
     data: wavBuffer,
     success: () => {
       const audio = uni.createInnerAudioContext({ useWebAudioImplement: true })
+      pcmPlayer = audio
       audio.obeyMuteSwitch = false
       audio.src = filePath
       audio.autoplay = true
-      audio.onEnded(() => {
-        audio.destroy()
+      const onDone = () => {
+        try { audio.destroy() } catch {}
         try { fs.unlinkSync(filePath) } catch {}
-        playNextPcm()
-      })
-      audio.onError(() => {
-        audio.destroy()
-        playNextPcm()
-      })
+        if (pcmPlayer === audio) pcmPlayer = null
+        isPlayingPcm = false
+        // 播放期间攒下的碎包: 无缝续播(不再等 prime); 队空则停下等新包
+        if (pcmBufferQueue.length > 0) startMergedPcmPlayback()
+      }
+      audio.onEnded(onDone)
+      audio.onError(onDone)
     },
-    fail: () => playNextPcm()
+    fail: () => {
+      isPlayingPcm = false
+      if (pcmBufferQueue.length > 0) startMergedPcmPlayback()
+    }
   })
 }
+
+// 兼容旧调用名
+function playNextPcm() { scheduleFallbackPlayback() }
 
 // PCM → WAV 转换
 function pcmToWav(pcmData: ArrayBuffer, sampleRate: number, numChannels: number, bitsPerSample: number): ArrayBuffer {
@@ -1301,6 +1385,7 @@ function startPhoneCall() {
   }
   nextStartTime = 0
   activeSources = []
+  webAudioUnavailable = false   // 每通电话重新尝试 WebAudio 路径
 
   // P68 fix: 使用正确的 token 键名
   const token = uni.getStorageSync('habitpet_token') || uni.getStorageSync('token')
@@ -1955,9 +2040,10 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 /* P55: 状态卡 - 右上角,稍大 */
 /* P63: 宠物名称上移 200rpx */
 /* P64: 状态卡整体下移 200rpx (74rpx -> 274rpx),水平位置不变 */
+/* P70: 状态卡再上移 100rpx (274rpx -> 174rpx),水平位置不变 */
 .pet-status-top-right {
   position: absolute;
-  top: 274rpx;
+  top: 174rpx;
   right: 24rpx;
   z-index: 10;
   max-width: 340rpx;

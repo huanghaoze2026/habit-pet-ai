@@ -56,13 +56,14 @@ defineProps<{
   display: flex;
   flex-direction: column;
   gap: 10rpx;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(30rpx) saturate(150%);
-  -webkit-backdrop-filter: blur(30rpx) saturate(150%);
+  /* P70: 进一步加强毛玻璃 —— 更强模糊 + 更低背景不透明度 + 更明显的内高光/描边 */
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(44rpx) saturate(180%);
+  -webkit-backdrop-filter: blur(44rpx) saturate(180%);
   border-radius: 20rpx;
   padding: 18rpx 24rpx;
-  box-shadow: 0 6rpx 28rpx rgba(0, 0, 0, 0.18), inset 0 1rpx 0 rgba(255, 255, 255, 0.4);
-  border: 1rpx solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.22), inset 0 1rpx 0 rgba(255, 255, 255, 0.55), inset 0 0 0 1rpx rgba(255, 255, 255, 0.12);
+  border: 1rpx solid rgba(255, 255, 255, 0.38);
 }
 
 /* 宝贝头像 + 名字行（卡片顶部） */

@@ -14,20 +14,20 @@
         <image class="wx-icon" src="/static/wechat-icon.png" mode="aspectFit" />
         <text>微信一键登录</text>
       </button>
-      <!-- 协议勾选:按钮下方,默认不勾选;点方框或文案主体切换,点《》链接看全文不切换 -->
-      <view class="agreement-check" @tap="agreed = !agreed">
-        <view class="agreement-checkbox" :class="{ 'agreement-checkbox--on': agreed }">
+      <!-- 协议勾选:按钮下方,默认不勾选;点方框或"我已阅读并同意"文字切换,点《》链接看全文不切换 -->
+      <view class="agreement-check">
+        <view class="agreement-checkbox" :class="{ 'agreement-checkbox--on': agreed }" @tap.stop="toggleAgree">
           <text v-if="agreed" class="agreement-checkbox-tick">✓</text>
         </view>
         <view class="agreement-check-text">
-          <text>我已阅读并同意</text>
+          <text @tap.stop="toggleAgree">我已阅读并同意</text>
           <text class="link" @tap.stop="showAgreement('privacy')">《隐私政策》</text>
           <text>和</text>
           <text class="link" @tap.stop="showAgreement('terms')">《用户协议》</text>
         </view>
       </view>
       <!-- 游客入口:符合规范"取消/拒绝登录",无需登录即可先体验(清态进任务页) -->
-      <text class="guest-entry" @tap="enterAsGuest">暂不设置,直接进入</text>
+      <view class="guest-entry" @tap="enterAsGuest">暂不设置,直接进入</view>
       <view v-if="errorMsg" class="error-tip"><text>{{ errorMsg }}</text></view>
     </view>
 
@@ -160,9 +160,24 @@ async function handleWxLogin() {
   }
 }
 
-// 游客入口：清空本地登录态并 switchTab 到任务页（不建会话、不查库、任务列表/宝贝为空）
+// 协议勾选切换（仅由方框 / "我已阅读并同意"纯文字触发，与《》链接分离）
+function toggleAgree() {
+  agreed.value = !agreed.value
+}
+
+// 游客入口：显式清空登录态（token/用户/宝贝/宠物）后 reLaunch 到任务页，
+// 确保离开登录页。采用 store.clearSession()（只清态不跳转）+ 自行 reLaunch，
+// 避免与 logout 内部 switchTab 重复/竞争导航。
 function enterAsGuest() {
-  userStore.logout()
+  try { userStore.clearSession() } catch (e) { console.warn('[Login] 清游客态异常(忽略):', e) }
+  // reLaunch 比 switchTab 更强制：清空页面栈并进入任务页 tab，确保离开登录页
+  uni.reLaunch({
+    url: '/pages/task/task',
+    fail: (e) => {
+      console.error('[Login] reLaunch 任务页失败，回退 switchTab', e)
+      uni.switchTab({ url: '/pages/task/task' })
+    }
+  })
 }
 
 function onChooseAvatar(e: any) {
@@ -220,7 +235,13 @@ async function submitProfile() {
 }
 
 function showAgreement(type: string) {
-  uni.navigateTo({ url: type === 'privacy' ? '/pages/privacy/privacy' : '/pages/terms/terms' })
+  uni.navigateTo({
+    url: type === 'privacy' ? '/pages/privacy/privacy' : '/pages/terms/terms',
+    fail: (e) => {
+      console.error('[Login] 打开协议失败', e)
+      uni.showToast({ title: '打开失败，请重试', icon: 'none' })
+    }
+  })
 }
 </script>
 

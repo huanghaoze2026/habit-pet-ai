@@ -4,8 +4,6 @@
     <view v-if="!card.sceneImage || bgErr" class="pcc-bg-fb" />
     <image v-if="card.petImage" :src="card.petImage" class="pcc-pet" mode="aspectFit" />
 
-    <view v-if="greetBubble" class="pcc-greet"><text>{{ greetBubble }}</text></view>
-
     <view class="pcc-tl">
       <image v-if="card.childAvatar" :src="card.childAvatar" class="pcc-av" mode="aspectFill" />
       <text v-else class="pcc-av-em">👶</text>
@@ -79,9 +77,7 @@ function tap(k:string){
 }
 function barH(v:number){ return Math.max(8,(v/(props.maxStats||1))*70)+'rpx' }
 
-// 点击卡片：宠物打招呼（气泡 + 交给父组件播 AI 语音）
-const greetBubble = ref('')
-let greetTimer:ReturnType<typeof setTimeout>|null=null
+// 点击卡片：宠物打招呼（不显示字幕，仅交给父组件播 AI 语音）
 let lastTap = 0
 function tapPet(){
   if(Date.now()-lastTap < 1500) return   // 1.5s 防抖，避免连点刷 TTS
@@ -104,10 +100,7 @@ function tapPet(){
   else text = `这是${owner}的${species}，心情一般，记得常来玩哦！`
   // 约 50% 概率追加邀请提示（不是每次都加）
   if(Math.random() < 0.5) text += '记得点上方的"邀请"按钮，叫上其他小朋友一起来养宠物吧～'
-  greetBubble.value = text   // 气泡字幕，4 秒清空
-  if(greetTimer)clearTimeout(greetTimer)
-  greetTimer=setTimeout(()=>{ greetBubble.value='' },4000)
-  emit('petTap', { text })   // 交给父组件播 AI 语音
+  emit('petTap', { text })   // 不显示字幕，交给父组件播 AI 语音
 }
 </script>
 
@@ -126,7 +119,6 @@ function tapPet(){
 .pcc-xp{width:80rpx;height:5rpx;background:rgba(255,255,255,.3);border-radius:3rpx;margin-top:2rpx;overflow:hidden}
 .pcc-xp-f{height:100%;background:#FFD700;border-radius:3rpx}
 .pcc-mood{position:absolute;top:82%;left:50%;transform:translateX(-50%);z-index:2;font-size:22rpx;color:#fff;background:rgba(0,0,0,.3);padding:4rpx 16rpx;border-radius:20rpx}
-.pcc-greet{position:absolute;top:22%;left:50%;transform:translateX(-50%);z-index:3;font-size:20rpx;color:#fff;background:rgba(0,0,0,.6);padding:6rpx 16rpx;border-radius:20rpx;white-space:nowrap;max-width:88%;text-align:center}
 .pcc-bars{position:absolute;bottom:0;left:0;right:0;z-index:2;display:flex;justify-content:space-around;align-items:flex-end;padding:8rpx 4rpx 14rpx;height:25%;box-sizing:border-box;background:transparent}
 .bar{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:60rpx;height:100%;gap:6rpx}
 .bar-f{width:48rpx;border-radius:6rpx 6rpx 0 0;min-height:8rpx}

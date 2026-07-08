@@ -137,7 +137,11 @@ export const useUserStore = defineStore('user', () => {
   /**
    * 退出登录
    */
-  function logout() {
+  /**
+   * 只清空本地登录态（token/用户/宝贝/宠物），不做任何页面跳转。
+   * 供游客入口等"清态后自行导航"的场景使用，避免与 logout 的内部跳转重复/竞争。
+   */
+  function clearSession() {
     token.value = '';
     refreshToken.value = '';
     userInfo.value = null;
@@ -151,7 +155,13 @@ export const useUserStore = defineStore('user', () => {
     // 在函数内调用 store composable（pinia 此时已激活）；try/catch 防止异常中断退出流程。
     try { useChildStore().reset(); } catch (e) { console.warn('[UserStore] 清空宝贝状态失败:', e); }
     try { usePetStore().reset(); } catch (e) { console.warn('[UserStore] 清空宠物状态失败:', e); }
+  }
 
+  /**
+   * 退出登录：清空登录态后回到任务页（游客态）。
+   */
+  function logout() {
+    clearSession();
     // 游客模式（审核整改）：退出后回到任务页以游客态继续浏览，不强制跳登录页。
     uni.switchTab({ url: '/pages/task/task' });
     console.log('[UserStore] 已退出登录（游客态）');
@@ -183,6 +193,7 @@ export const useUserStore = defineStore('user', () => {
     updateUserInfo,
     checkLoginStatus,
     doRefreshToken,
+    clearSession,
     logout,
     getAuthHeader,
   };
