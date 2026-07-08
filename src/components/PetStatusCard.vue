@@ -1,5 +1,19 @@
 <template>
   <view class="status-card status-card--compact">
+    <!-- 宝贝头像 + 名字（在宠物名称之上） -->
+    <view class="status-child">
+      <image
+        v-if="childAvatar"
+        class="status-child-avatar"
+        :src="childAvatar"
+        mode="aspectFill"
+      />
+      <view v-else class="status-child-avatar status-child-avatar--ph">
+        <text>👶</text>
+      </view>
+      <text class="status-child-name">{{ childName || '宝贝' }}</text>
+    </view>
+
     <!-- 主标题行 -->
     <view class="status-main">
       <text class="status-level">Lv.{{ level }}</text>
@@ -32,6 +46,8 @@ defineProps<{
   moodLabel: string
   energy?: number
   expPercent: number
+  childAvatar?: string
+  childName?: string
 }>()
 </script>
 
@@ -40,12 +56,50 @@ defineProps<{
   display: flex;
   flex-direction: column;
   gap: 10rpx;
-  background: rgba(255, 255, 255, 0.13);
-  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(30rpx) saturate(150%);
+  -webkit-backdrop-filter: blur(30rpx) saturate(150%);
   border-radius: 20rpx;
   padding: 18rpx 24rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.12), inset 0 1rpx 0 rgba(255, 255, 255, 0.25);
-  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6rpx 28rpx rgba(0, 0, 0, 0.18), inset 0 1rpx 0 rgba(255, 255, 255, 0.4);
+  border: 1rpx solid rgba(255, 255, 255, 0.28);
+}
+
+/* 宝贝头像 + 名字行（卡片顶部） */
+.status-child {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding-bottom: 8rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.18);
+}
+
+.status-child-avatar {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  border: 1rpx solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.status-child-avatar--ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 22rpx;
+}
+
+.status-child-name {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 500;
+  max-width: 180rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.3);
 }
 
 .status-main {

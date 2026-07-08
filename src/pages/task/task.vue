@@ -27,12 +27,21 @@
     >
       <swiper-item v-for="(child, childIdx) in store.childList" :key="child.id">
         <view class="top-bar">
-          <view class="top-bar-left" @click="nextChild">
-            <text v-if="store.childList.length > 1" class="arrow-switch arrow-switch--left" @click.stop="prevChild">‹</text>
-            <image v-if="child.avatar" :src="child.avatar" class="top-bar-avatar" mode="aspectFill" />
-            <view v-else class="top-bar-avatar-default"><text>{{ child.gender === 'male' ? '👦' : child.gender === 'female' ? '👧' : '👶' }}</text></view>
-            <text class="top-bar-name">{{ child.nickname }}</text>
-            <text v-if="store.childList.length > 1" class="arrow-switch arrow-switch--right" @click.stop="nextChild">›</text>
+          <view class="top-bar-left">
+            <!-- 左箭头：切上一个宝贝，独立可点容器，扩大热区，@click.stop 防冒泡 -->
+            <view v-if="store.childList.length > 1" class="child-arrow child-arrow--left" @click.stop="prevChild">
+              <text class="child-arrow-icon">‹</text>
+            </view>
+            <!-- 头像+昵称：独立容器，点击进入该宝贝详情页（不再切换宝贝） -->
+            <view class="top-bar-child" @click.stop="openChildDetail(child)">
+              <image v-if="child.avatar" :src="child.avatar" class="top-bar-avatar" mode="aspectFill" />
+              <view v-else class="top-bar-avatar-default"><text>{{ child.gender === 'male' ? '👦' : child.gender === 'female' ? '👧' : '👶' }}</text></view>
+              <text class="top-bar-name">{{ child.nickname }}</text>
+            </view>
+            <!-- 右箭头：切下一个宝贝，独立可点容器，扩大热区，@click.stop 防冒泡 -->
+            <view v-if="store.childList.length > 1" class="child-arrow child-arrow--right" @click.stop="nextChild">
+              <text class="child-arrow-icon">›</text>
+            </view>
           </view>
           <!-- 今日任务：绝对居中 -->
           <text v-if="childTasks[child.id] && childTasks[child.id].length > 0" class="top-bar-today">今日任务</text>
@@ -342,6 +351,12 @@ const prevChild = () => {
   if (store.currentIndex > 0) store.switchTo(store.currentIndex - 1)
 }
 
+// 点击头像/昵称 → 打开该宝贝详情页（不切换宝贝）
+const openChildDetail = (child: any) => {
+  if (!child?.id) return
+  uni.navigateTo({ url: '/pages/parent/children/detail?id=' + child.id })
+}
+
 const refreshCurrentChild = () => {
   if (store.childList.length > 0) {
     loadedIndices.value.add(store.currentIndex)
@@ -351,6 +366,12 @@ const refreshCurrentChild = () => {
 }
 
 onShow(() => {
+  // 游客态（审核整改）：未登录不拉取宝贝/任务，清空并展示游客空态引导。
+  // 已登录才正常拉取，确保退出后任务页立即变全空、不残留旧宝贝/任务。
+  if (!userStore.isLoggedIn) {
+    store.reset()
+    return
+  }
   store.fetchChildList(true).then(() => {
     refreshCurrentChild()
     if (store.currentChildId) {
@@ -492,17 +513,21 @@ const completeTask = async (task: Task) => {
 /* P61: 顶部栏半透明融入背景 */
 /* P62: 宝贝切换栏增强半透明毛玻璃 */
 .top-bar { display:flex; align-items:center; padding:20rpx; flex-shrink:0; position:relative; z-index:1; background:rgba(255,255,255,0.55); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-radius:24rpx; margin:12rpx 20rpx; }
-.top-bar-left { display:flex; align-items:center; gap:12rpx; }
+.top-bar-left { display:flex; align-items:center; gap:4rpx; }
+/* 头像+昵称：独立可点容器，点击进入宝贝详情，与箭头分离修复错位 */
+.top-bar-child { display:flex; align-items:center; gap:12rpx; padding:6rpx 10rpx; border-radius:16rpx; }
+.top-bar-child:active { opacity:0.7; }
 /* 今日任务：绝对定位居中，不受左侧名字长度影响 */
 .top-bar-today { font-size:32rpx; font-weight:bold; color:#4A2D7A; position:absolute; left:50%; transform:translateX(-50%); white-space:nowrap; z-index:1; text-shadow:0 1rpx 3rpx rgba(255,255,255,0.9); }
 .top-bar-stats { font-size:22rpx; color:#8B5CF6; font-weight:600; margin-left:12rpx; }
 .top-bar-avatar,.top-bar-avatar-default { width:62rpx; height:62rpx; border-radius:50%; background:#D4C5F0; display:flex; align-items:center; justify-content:center; font-size:32rpx; }
 .top-bar-name { font-size:28rpx; font-weight:bold; color:#222; text-shadow:0 1rpx 2rpx rgba(255,255,255,0.8); }
-/* 宝贝切换左右箭头 */
-.arrow-switch { font-size:32rpx; color:#222; font-weight:bold; display:flex; align-items:center; padding:0 6rpx; text-shadow:0 1rpx 2rpx rgba(255,255,255,0.8); }
-.arrow-switch--left { margin-right:4rpx; }
-.arrow-switch--right { margin-left:4rpx; }
-.arrow-switch:active { opacity:0.45; }
+/* 宝贝切换左右箭头：放大加宽、扩大点击热区，独立容器修复点击错位 */
+.child-arrow { display:flex; align-items:center; justify-content:center; padding:10rpx 20rpx; border-radius:16rpx; }
+.child-arrow-icon { font-size:40rpx; color:#222; font-weight:bold; line-height:1; text-shadow:0 1rpx 2rpx rgba(255,255,255,0.8); }
+.child-arrow--left { margin-right:2rpx; }
+.child-arrow--right { margin-left:2rpx; }
+.child-arrow:active { opacity:0.45; }
 /* 右上角浮动添加按钮（浅芋紫色） */
 /* P62: 新增按钮粉色调毛玻璃 */
 .top-bar-add { position:absolute; top:20rpx; right:24rpx; width:56rpx; height:56rpx; border-radius:40rpx; background:rgba(255,142,158,0.75); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; z-index:10; box-shadow:0 4rpx 20rpx rgba(255,142,158,0.3); border:1px solid rgba(255,255,255,0.4); }

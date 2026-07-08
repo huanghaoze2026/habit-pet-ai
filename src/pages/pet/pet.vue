@@ -100,6 +100,8 @@
                 :mood-emoji="moodEmoji"
                 :mood-label="moodLabel"
                 :exp-percent="expPercent"
+                :child-avatar="currentChild?.avatar"
+                :child-name="currentChild?.nickname"
               />
             </view>
 
@@ -1952,9 +1954,10 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 
 /* P55: 状态卡 - 右上角,稍大 */
 /* P63: 宠物名称上移 200rpx */
+/* P64: 状态卡整体下移 200rpx (74rpx -> 274rpx),水平位置不变 */
 .pet-status-top-right {
   position: absolute;
-  top: 74rpx;
+  top: 274rpx;
   right: 24rpx;
   z-index: 10;
   max-width: 340rpx;

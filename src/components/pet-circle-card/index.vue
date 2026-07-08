@@ -56,6 +56,13 @@ const STAGE_NAMES: Record<string, string> = {
   ultimate: '完全体',
 }
 
+const SPECIES_LABEL: Record<string,string> = {
+  cloud_beast:'云团兽', milk_tea_fox:'奶茶狐', moon_rabbit:'月兔',
+  fire_dragon_dog:'小火龙犬', thunder_tiger:'雷虎机械兽', sword_eagle:'剑羽鹰',
+  doctor_cat:'小博士猫', code_cool:'代码酷德', azure_dragon:'青龙幼灵',
+  phoenix_bird:'凤凰鸟', baize:'白泽', thunder_mecha_tiger:'雷霆机甲虎',
+}
+
 const props = defineProps<{ card: Record<string,any>; height: number; maxStats: number }>()
 const emit = defineEmits(['barTap', 'petTap'])
 
@@ -77,15 +84,30 @@ const greetBubble = ref('')
 let greetTimer:ReturnType<typeof setTimeout>|null=null
 let lastTap = 0
 function tapPet(){
-  if(Date.now()-lastTap < 1500) return
+  if(Date.now()-lastTap < 1500) return   // 1.5s 防抖，避免连点刷 TTS
   lastTap = Date.now()
-  const n = props.card.petName || props.card.petNickname || '宠物'
-  const lines = [`你好呀，我是${n}！`, `${n}在这儿等你玩哦~`, '嗨，摸摸我呀！', '嗷呜，你来啦！']
-  const line = lines[Math.floor(Math.random()*lines.length)]
-  greetBubble.value = line
+  const card = props.card
+  const owner = card.childName || card.childNickname || '小朋友'
+  const species = SPECIES_LABEL[card.speciesId] || card.petName || '宠物'
+  // 心情分类：优先 moodStatus，其次用数值 mood 判断
+  let moodKey = ''
+  if(['开心','伤心','正常'].includes(card.moodStatus)){
+    moodKey = card.moodStatus
+  }else{
+    const m = Number(card.mood)
+    moodKey = m >= 80 ? '开心' : (m < 40 ? '伤心' : '正常')
+  }
+  // 三种基础话术
+  let text = ''
+  if(moodKey === '开心') text = `这是${owner}的${species}，他现在很开心，你的宠物也要加油哦！`
+  else if(moodKey === '伤心') text = `这是${owner}的${species}，他现在有点伤心，快通知${owner}来照顾他吧～`
+  else text = `这是${owner}的${species}，心情一般，记得常来玩哦！`
+  // 约 50% 概率追加邀请提示（不是每次都加）
+  if(Math.random() < 0.5) text += '记得点上方的"邀请"按钮，叫上其他小朋友一起来养宠物吧～'
+  greetBubble.value = text   // 气泡字幕，4 秒清空
   if(greetTimer)clearTimeout(greetTimer)
   greetTimer=setTimeout(()=>{ greetBubble.value='' },4000)
-  emit('petTap', { text: line })
+  emit('petTap', { text })   // 交给父组件播 AI 语音
 }
 </script>
 

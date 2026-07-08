@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { TOKEN_KEY, REFRESH_TOKEN_KEY, USER_INFO_KEY } from '@/utils/constants';
+import { useChildStore } from '@/stores/child';
+import { usePetStore } from '@/stores/pet';
 
 /** 用户信息接口 */
 export interface UserInfo {
@@ -144,6 +146,11 @@ export const useUserStore = defineStore('user', () => {
     uni.removeStorageSync(TOKEN_KEY);
     uni.removeStorageSync(REFRESH_TOKEN_KEY);
     uni.removeStorageSync(USER_INFO_KEY);
+
+    // 游客态（审核整改）：退出即清空宝贝/宠物状态，保证任务页/我的页立即回到全空游客态。
+    // 在函数内调用 store composable（pinia 此时已激活）；try/catch 防止异常中断退出流程。
+    try { useChildStore().reset(); } catch (e) { console.warn('[UserStore] 清空宝贝状态失败:', e); }
+    try { usePetStore().reset(); } catch (e) { console.warn('[UserStore] 清空宠物状态失败:', e); }
 
     // 游客模式（审核整改）：退出后回到任务页以游客态继续浏览，不强制跳登录页。
     uni.switchTab({ url: '/pages/task/task' });

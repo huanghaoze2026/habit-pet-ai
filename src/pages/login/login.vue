@@ -54,6 +54,19 @@
       <text class="profile-skip" @tap="skipProfile">暂不设置，直接进入</text>
     </view>
 
+    <!-- 首次登录：自定义授权弹窗（用户手势触发 getUserProfile，不用 uni.showModal —— 其回调不算用户手势，会导致 getUserProfile 失败） -->
+    <view v-if="showAuthModal" class="auth-mask">
+      <view class="auth-modal">
+        <text class="auth-modal-title">快速完善资料</text>
+        <text class="auth-modal-desc">获取你的微信头像和昵称，快速完善宠物主人资料？</text>
+        <view class="auth-modal-btns">
+          <button class="auth-btn auth-btn--cancel" @tap="cancelAuthFill">取消</button>
+          <!-- 「允许」必须是真实按钮的 @tap，才构成用户手势，getUserProfile 才可调用 -->
+          <button class="auth-btn auth-btn--allow" @tap="autoFillProfile">允许</button>
+        </view>
+      </view>
+    </view>
+
     <view class="login-footer"><text class="version">v1.0.1</text></view>
   </view>
 </template>
@@ -74,6 +87,8 @@ const errorMsg = ref('')
 const showProfileSetup = ref(false)
 const profileSubmitting = ref(false)
 const phoneBound = ref(false)
+// 首次登录授权弹窗：仅新用户第一次完善资料时出现一次
+const showAuthModal = ref(false)
 
 onLoad((options: any) => {
   // 仅处理带参回跳（邀请），不做任何自动登录 / 自动弹窗
@@ -110,6 +125,11 @@ async function handleWxLogin() {
       profileForm.avatarUrl = avatar || ''
       // 登录成功后展示“完善资料”区（作为登录动作的一部分）
       showProfileSetup.value = true
+      // 仅【第一次登录的新用户】、且后端尚无头像/昵称时，弹一次自定义授权弹窗，
+      // 引导用户手势触发 getUserProfile 自动填入头像/昵称；老用户/已设置过的不弹。
+      if (isNewUser && !profileForm.avatarUrl && !profileForm.nickname) {
+        showAuthModal.value = true
+      }
     } else {
       errorMsg.value = res.message || '登录失败，请重试'
     }
@@ -119,6 +139,33 @@ async function handleWxLogin() {
   } finally {
     isLoading.value = false
   }
+}
+
+// 「允许」：真实按钮手势触发 getUserProfile —— 成功则自动填入头像/昵称；
+// 失败/拒绝则静默降级（保留手动 chooseAvatar + 昵称输入）。无论结果，关闭弹窗并展示完善资料区。
+// ⚠️ 平台限制：新基础库下 getUserProfile 可能返回匿名（灰色头像 / “微信用户”），此为微信限制，遇匿名也照填，用户可再手动改。
+function autoFillProfile() {
+  uni.getUserProfile({
+    desc: '用于完善宠物主人资料',
+    success: (res: any) => {
+      const info = res?.userInfo || {}
+      if (info.avatarUrl) profileForm.avatarUrl = info.avatarUrl
+      if (info.nickName) profileForm.nickname = info.nickName
+    },
+    fail: (err: any) => {
+      // 用户拒绝 / 接口失败 —— 静默降级为手动填写
+      console.log('[Login] getUserProfile 未成功，降级手动填写:', err)
+    },
+    complete: () => {
+      // 无论成功与否都关闭授权弹窗，露出完善资料区
+      showAuthModal.value = false
+    },
+  })
+}
+
+// 「取消」：不获取，直接关闭弹窗，展示完善资料区（用户手动设置）
+function cancelAuthFill() {
+  showAuthModal.value = false
 }
 
 function onChooseAvatar(e: any) {
@@ -221,4 +268,15 @@ function showAgreement(type: string) {
 .profile-submit-btn::after { border:none; }
 .profile-submit-btn[disabled] { background:#CCC; }
 .profile-skip { font-size:24rpx; color:#999; text-decoration:underline; }
+
+/* 首次登录自定义授权弹窗（覆盖层，非 uni.showModal） */
+.auth-mask { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:999; padding:0 60rpx; box-sizing:border-box; }
+.auth-modal { width:100%; max-width:560rpx; background:#fff; border-radius:24rpx; padding:48rpx 40rpx 32rpx; display:flex; flex-direction:column; align-items:center; gap:20rpx; box-shadow:0 12rpx 40rpx rgba(0,0,0,0.2); }
+.auth-modal-title { font-size:34rpx; font-weight:bold; color:#333; }
+.auth-modal-desc { font-size:28rpx; color:#666; text-align:center; line-height:1.5; }
+.auth-modal-btns { display:flex; width:100%; gap:24rpx; margin-top:12rpx; }
+.auth-btn { flex:1; height:84rpx; line-height:84rpx; font-size:30rpx; font-weight:600; border-radius:44rpx; border:none; }
+.auth-btn::after { border:none; }
+.auth-btn--cancel { background:#F2F2F2; color:#666; }
+.auth-btn--allow { background:#5B3E96; color:#fff; }
 </style>

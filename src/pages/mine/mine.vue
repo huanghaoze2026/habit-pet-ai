@@ -143,7 +143,11 @@ const store = useChildStore()
 const userStore = useUserStore()
 
 onShow(() => {
-  store.fetchChildList()
+  // 游客态（审核整改）：未登录不拉取用户信息与宝贝列表，保持“点击登录”态。
+  // 退出后 userStore 已清空、child store 已 reset，不重新拉取就不会残留旧用户/宝贝信息。
+  if (userStore.isLoggedIn) {
+    store.fetchChildList()
+  }
 })
 
 const goAddChild = () => {
