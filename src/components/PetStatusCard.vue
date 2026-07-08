@@ -56,14 +56,14 @@ defineProps<{
   display: flex;
   flex-direction: column;
   gap: 10rpx;
-  /* P70: 进一步加强毛玻璃 —— 更强模糊 + 更低背景不透明度 + 更明显的内高光/描边 */
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(44rpx) saturate(180%);
-  -webkit-backdrop-filter: blur(44rpx) saturate(180%);
+  /* P71: 弱化毛玻璃 —— 轻模糊 + 低背景不透明度，呈"透明玻璃片"而非磨砂白块 */
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(8rpx) saturate(115%);
+  -webkit-backdrop-filter: blur(8rpx) saturate(115%);
   border-radius: 20rpx;
   padding: 18rpx 24rpx;
-  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.22), inset 0 1rpx 0 rgba(255, 255, 255, 0.55), inset 0 0 0 1rpx rgba(255, 255, 255, 0.12);
-  border: 1rpx solid rgba(255, 255, 255, 0.38);
+  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.16), inset 0 1rpx 0 rgba(255, 255, 255, 0.22), inset 0 0 0 1rpx rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.22);
 }
 
 /* 宝贝头像 + 名字行（卡片顶部） */
@@ -118,13 +118,15 @@ defineProps<{
 
 .status-stage {
   font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.95);
   font-weight: 500;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.35);
 }
 
 .status-mood-mini {
   font-size: 20rpx;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.35);
 }
 
 .status-grow {

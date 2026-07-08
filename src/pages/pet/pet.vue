@@ -805,6 +805,11 @@ let wsConnection: any = null
 let wsPingTimer: ReturnType<typeof setInterval> | null = null
 let reconnectAttempts = 0
 const MAX_RECONNECT = 3
+// P71: PTT 模式主动关 WS 的意图标志——置真时 onClose 不触发自动重连(切"按住说话"/挂断时用)
+let pttIntentionalClose = false
+// P71: 缓存本次通话的 token/childId, 供切回"自由通话"时重建 WS 复用
+let callToken = ''
+let callChildId = ''
 
 // PCM 音频缓冲队列 (fallback 文件式路径使用)
 interface PcmQueueItem { data: ArrayBuffer; sampleRate: number }
@@ -824,6 +829,16 @@ let fallbackPrimeTimer: ReturnType<typeof setTimeout> | null = null  // 文件�
 let webAudioCtx: any = null
 let nextStartTime = 0
 let activeSources: any[] = []
+// P71-抖动缓冲(加大版): 首播提前量 + 最小预缓冲门槛, 宁可多一点起播延迟换连续不断字
+// (受端侧碎包+调度限制无法做到绝对无缝, 目标是把"两字一顿"改善为基本连贯)
+const PRIME_LEAD_SEC = 1.3        // 首段整体排到 currentTime + 该值处起播, 建立抖动缓冲(原 FIRST_PRIME 0.6)
+const MIN_PREBUFFER_SEC = 0.8     // 最小预缓冲: 首包到达后先累积到该时长 PCM 再开始排程, 避免一到货就播频繁欠载
+const PRIME_MAX_WAIT_MS = 1500    // 预缓冲最大等待兜底: 数据缓慢时最多等这么久也开播, 控制首字延迟上限
+const REPRIME_SEC = 0.6           // 欠载重建缓冲(原 0.4): 排程落后 currentTime 时重新提前该值起播
+let webAudioPrimed = false        // 预缓冲门槛已满足并已开始排程
+let pendingWebAudioBufs: any[] = [] // 预缓冲累积但尚未排程的 AudioBuffer
+let pendingWebAudioDur = 0        // 预缓冲累积时长(秒)
+let webAudioPrimeTimer: ReturnType<typeof setTimeout> | null = null  // 预缓冲最大等待兜底定时器
 
 // 🔍 诊断: 打印 WebAudio 探测结果, 便于真机确认走哪条路径
 try {
@@ -909,6 +924,7 @@ function stopAllAudio() {
   }
   // 打断后重新从 ctx.currentTime 排程; 不在此处 close() ctx(同一通话继续复用)
   nextStartTime = 0
+  resetWebAudioPrimeState()   // P71: 打断后清空预缓冲, 下段重新攒够门槛再播
 
   // 停止所有 InnerAudioContext 实例
   if (playingAudio.value) {
@@ -1016,7 +1032,14 @@ function connectWebSocket(token: string, childId: string) {
   wsConnection.onClose((res: any) => {
     console.log('[P68] WebSocket onClose, code:', res?.code, 'reason:', res?.reason)
     stopWsPing()
-    
+
+    // P71: 切 PTT / 挂断等主动关闭 → 不自动重连
+    if (pttIntentionalClose) {
+      console.log('[P71] intentional close (ptt/hangup), skip reconnect')
+      pttIntentionalClose = false
+      return
+    }
+
     // 如果还在通话状态且不是主动挂断，尝试重连
     if (isOnCall.value && reconnectAttempts < MAX_RECONNECT && res?.code !== 1000) {
       reconnectAttempts++
@@ -1129,6 +1152,62 @@ function stopMicrophone() {
 }
 
 // ========== PCM 音频播放 ==========
+// P71: 统一登记正在播放的 source, 结束后从 activeSources 移除(供打断/挂断时 stop)
+function trackActiveSource(source: any) {
+  activeSources.push(source)
+  source.onended = () => {
+    const idx = activeSources.indexOf(source)
+    if (idx >= 0) activeSources.splice(idx, 1)
+  }
+}
+
+// P71: 重置 WebAudio 预缓冲/排程状态(打断、开播、挂断时调用)
+function resetWebAudioPrimeState() {
+  webAudioPrimed = false
+  pendingWebAudioBufs = []
+  pendingWebAudioDur = 0
+  if (webAudioPrimeTimer) { clearTimeout(webAudioPrimeTimer); webAudioPrimeTimer = null }
+}
+
+// P71: 预缓冲攒够后, 把累积碎包整体排程——首段从 currentTime + PRIME_LEAD_SEC 起播建立抖动缓冲
+function flushWebAudioPrime(ctx: any) {
+  if (webAudioPrimeTimer) { clearTimeout(webAudioPrimeTimer); webAudioPrimeTimer = null }
+  webAudioPrimed = true
+  const primedDur = pendingWebAudioDur
+  const bufs = pendingWebAudioBufs
+  pendingWebAudioBufs = []
+  pendingWebAudioDur = 0
+  nextStartTime = ctx.currentTime + PRIME_LEAD_SEC
+  for (const b of bufs) {
+    const source = ctx.createBufferSource()
+    source.buffer = b
+    source.connect(ctx.destination)
+    source.start(nextStartTime)
+    nextStartTime += b.duration
+    trackActiveSource(source)
+  }
+  try { console.log('[P71][audio] webaudio primed: prebuffered=', primedDur.toFixed(2), 's, lead=', PRIME_LEAD_SEC, 's') } catch {}
+}
+
+// P71: primed 之后的连续排程——衔接 nextStartTime(无缝); 欠载则重建 REPRIME 缓冲(nextStartTime 只增不回退)
+function scheduleWebAudioBuffer(ctx: any, buffer: any) {
+  const source = ctx.createBufferSource()
+  source.buffer = buffer
+  source.connect(ctx.destination)
+  const ctxNow = ctx.currentTime
+  let startAt: number
+  if (nextStartTime <= ctxNow + 0.02) {
+    // 欠载: 排程已被播放追上/落后 → 重新提前 REPRIME_SEC 起播, 重建缓冲
+    startAt = ctxNow + REPRIME_SEC
+    try { console.log('[P71][audio] underrun -> reprime', REPRIME_SEC, 's') } catch {}
+  } else {
+    startAt = nextStartTime
+  }
+  source.start(startAt)
+  nextStartTime = startAt + buffer.duration
+  trackActiveSource(source)
+}
+
 function handlePcmAudio(pcmData: ArrayBuffer, sampleRate: number = 24000) {
   // 半双工防回声：只要有宠物音频到达/播放，其后 700ms 内静音麦克风推流(覆盖抖动缓冲+尾包)
   petAudioGuardUntil = Date.now() + 700
@@ -1140,11 +1219,14 @@ function handlePcmAudio(pcmData: ArrayBuffer, sampleRate: number = 24000) {
     return
   }
 
-  // P69-流畅修复: 抖动缓冲 + 杜绝空隙
-  // WebAudioContext 链式排程: Int16 PCM → Float32 → AudioBuffer，按抖动缓冲策略排程
+  // P71-加大抖动缓冲: 预缓冲门槛 + 首播提前量, 换连续不断字
+  // WebAudioContext 链式排程: Int16 PCM → Float32 → AudioBuffer
   try {
     const ctx = ensureWebAudioCtx()
-    if (pcmLastPath !== 'webaudio') { console.log('[P70][audio] path=webaudio(seamless schedule)'); pcmLastPath = 'webaudio' }
+    if (pcmLastPath !== 'webaudio') {
+      console.log('[P71][audio] path=webaudio(seamless), PRIME_LEAD=', PRIME_LEAD_SEC, 'MIN_PREBUF=', MIN_PREBUFFER_SEC, 'REPRIME=', REPRIME_SEC)
+      pcmLastPath = 'webaudio'
+    }
 
     // 字节数应为偶数; 奇数做防护截断
     const usableBytes = pcmData.byteLength - (pcmData.byteLength % 2)
@@ -1160,34 +1242,27 @@ function handlePcmAudio(pcmData: ArrayBuffer, sampleRate: number = 24000) {
       buffer.copyToChannel(f32, 0)
     }
 
-    const source = ctx.createBufferSource()
-    source.buffer = buffer
-    source.connect(ctx.destination)
-
-    // P70-自适应抖动缓冲:
-    //   首包(nextStartTime==0)          → 建立较大初始缓冲 FIRST_PRIME_SEC
-    //   欠载(排程已追上/落后 currentTime) → 重建较小缓冲 REPRIME_SEC
-    //   连续段                          → 直接衔接 nextStartTime(无缝、不重排)
-    // nextStartTime 只增不倒退, 避免把 source 排到过去时间点造成断续。
-    const FIRST_PRIME_SEC = 0.6
-    const REPRIME_SEC = 0.4
-    const ctxNow = ctx.currentTime
-    let startAt: number
-    if (nextStartTime === 0) {
-      startAt = ctxNow + FIRST_PRIME_SEC
-    } else if (nextStartTime <= ctxNow + 0.02) {
-      startAt = ctxNow + REPRIME_SEC
-    } else {
-      startAt = nextStartTime
+    // 预缓冲阶段(尚未 primed): 先把碎包 AudioBuffer 攒起来,
+    // 累积到 MIN_PREBUFFER_SEC(或 PRIME_MAX_WAIT_MS 超时兜底)再一次性排程,
+    // 避免一到货就播导致频繁欠载断续。
+    if (!webAudioPrimed) {
+      pendingWebAudioBufs.push(buffer)
+      pendingWebAudioDur += buffer.duration
+      if (pendingWebAudioDur >= MIN_PREBUFFER_SEC) {
+        flushWebAudioPrime(ctx)
+      } else if (!webAudioPrimeTimer) {
+        webAudioPrimeTimer = setTimeout(() => {
+          webAudioPrimeTimer = null
+          if (!webAudioPrimed && pendingWebAudioBufs.length) {
+            try { flushWebAudioPrime(ensureWebAudioCtx()) } catch {}
+          }
+        }, PRIME_MAX_WAIT_MS)
+      }
+      return
     }
-    source.start(startAt)
-    nextStartTime = startAt + buffer.duration
 
-    activeSources.push(source)
-    source.onended = () => {
-      const idx = activeSources.indexOf(source)
-      if (idx >= 0) activeSources.splice(idx, 1)
-    }
+    // 已 primed: 连续段直接衔接 nextStartTime(无缝); 欠载则重建 REPRIME 缓冲。
+    scheduleWebAudioBuffer(ctx, buffer)
   } catch (e) {
     // WebAudio 异常 → 标记不可用, 兜底走文件式路径(后续直接走回退, 不再逐包重试)
     webAudioUnavailable = true
@@ -1243,8 +1318,8 @@ function decodeBase64(input: string): string {
 // 思路: 把队列里已到达的多个 PCM 碎包拼接成较大一段再转一个 WAV 播放,
 // 显著减少 InnerAudioContext 建实例次数与段间空隙。首段先攒够最小缓冲再开播,
 // 连续段在上一段 onEnded 时把期间攒下的碎包全部合并续播(无需再等 prime)。
-const FALLBACK_MIN_PRIME_SEC = 0.4   // 首段先攒够 ~0.4s 再开播, 避免逐字
-const FALLBACK_PRIME_WAIT_MS = 200   // 但最多等 200ms, 控制首字延迟
+const FALLBACK_MIN_PRIME_SEC = 1.2   // P71: 首段先攒够 ~1.2s 再开播, 进一步减少段间空隙(原 0.4); 续段在 onEnded 时 drain 全部队列
+const FALLBACK_PRIME_WAIT_MS = 400   // 但最多等 400ms, 控制首字延迟(原 200)
 
 // 估算当前队列已缓存 PCM 的时长(16-bit mono)
 function queuedPcmDurationSec(): number {
@@ -1386,10 +1461,15 @@ function startPhoneCall() {
   nextStartTime = 0
   activeSources = []
   webAudioUnavailable = false   // 每通电话重新尝试 WebAudio 路径
+  resetWebAudioPrimeState()     // P71: 清空上一通遗留的预缓冲状态
+  pttIntentionalClose = false   // P71: 复位意图关闭标志
 
   // P68 fix: 使用正确的 token 键名
   const token = uni.getStorageSync('habitpet_token') || uni.getStorageSync('token')
   const childId = currentChild?.value?.id || ''
+  // P71: 缓存 token/childId, 供切回全双工时重建 WS 复用
+  callToken = token
+  callChildId = childId
   
   console.log('[P68] Token exists:', !!token, 'ChildId:', childId, 'Token:', token?.substring(0, 20))
 
@@ -1403,14 +1483,11 @@ function startPhoneCall() {
 }
 
 function hangUp() {
-  // P68-修复2: 主动关闭 WebSocket
+  // P68-修复2 / P71: 主动关闭 WebSocket, 标记意图关闭防止 onClose 自动重连
   if (wsConnection) {
-    try { 
-      wsConnection.send({ data: JSON.stringify({ type: 'hangup' }) }) 
-    } catch {}
-    
-    try { uni.closeSocket({ code: 1000, reason: 'User hang up' }) } catch {}
-    
+    pttIntentionalClose = true
+    try { wsConnection.send({ data: JSON.stringify({ type: 'hangup' }) }) } catch {}
+    try { wsConnection.close({ code: 1000, reason: 'User hang up' }) } catch {}
     wsConnection = null
   }
   
@@ -1434,6 +1511,9 @@ function hangUp() {
   }
   nextStartTime = 0
   activeSources = []
+  resetWebAudioPrimeState()   // P71: 清空预缓冲状态
+  callToken = ''
+  callChildId = ''
   
   // 重置状态
   isOnCall.value = false
@@ -1462,16 +1542,43 @@ function hangUp() {
 // ========== 全双工/按住说切换 ==========
 function toggleRealtimeMode() {
   if (isFullDuplex.value) {
+    // 自由通话(全双工) → 按住说话(PTT): 关闭 Gemini live 的 WS, PTT 期间完全走后端 DeepSeek(HTTP)
     isFullDuplex.value = false
     stopMicrophone()
-    callStatus.value = 'connected'
     if (wsConnection) {
-      wsConnection.send({ data: JSON.stringify({ type: 'mode_switch', mode: 'ptt' }) })
+      pttIntentionalClose = true      // 阻止 onClose 自动重连
+      try { wsConnection.close({ code: 1000, reason: 'switch to ptt' }) } catch {}
+      wsConnection = null
     }
+    stopWsPing()
+    // PTT 语音走 sendVoiceToHttp(HTTP/DeepSeek), 不依赖 WS
+    callStatus.value = 'connected'
+    console.log('[P71] switched to PTT: WS closed, PTT uses DeepSeek HTTP')
   } else {
+    // 按住说话(PTT) → 自由通话(全双工): 重新建立 WS(onOpen 会在全双工下自动开麦)
     isFullDuplex.value = true
-    startMicrophone()
-    if (wsConnection) {
+    if (!wsConnection) {
+      reconnectAttempts = 0
+      pttIntentionalClose = false
+      let token = callToken
+      let childId = callChildId
+      if (!token) {
+        token = uni.getStorageSync('habitpet_token') || uni.getStorageSync('token')
+        childId = currentChild?.value?.id || ''
+        callToken = token
+        callChildId = childId
+      }
+      if (!token) {
+        callError.value = '未登录,无法恢复通话'
+        callStatus.value = 'error'
+        return
+      }
+      callStatus.value = 'connecting'
+      console.log('[P71] switched to full-duplex: reconnect WS')
+      connectWebSocket(token, childId)   // onOpen 中 isFullDuplex=true 会自动 startMicrophone()
+    } else {
+      // 异常兜底: WS 仍在, 直接开麦并通知后端
+      startMicrophone()
       wsConnection.send({ data: JSON.stringify({ type: 'mode_switch', mode: 'full_duplex' }) })
     }
   }
