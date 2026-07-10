@@ -8,6 +8,7 @@ import { api } from './api';
 interface CreateOrderParams {
   childData: Record<string, any>;
   wxCode: string;
+  envVersion?: string;
 }
 
 interface CreateOrderResult {

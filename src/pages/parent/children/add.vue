@@ -332,10 +332,20 @@ async function handlePaidSubmit(): Promise<void> {
     const childData = buildChildParams() as Record<string, any>;
     const wxCode = loginRes.code;
 
-    // 2. 创建支付订单（后端生成签名）
+    // 2. 获取小程序运行版本(develop=开发版/开发者工具, trial=体验版, release=正式版)
+    let envVersion = 'release';
+    try {
+      // @ts-ignore
+      const acc = wx.getAccountInfoSync();
+      envVersion = acc?.miniProgram?.envVersion || 'release';
+    } catch (e) {
+      console.warn('[Payment] 获取 envVersion 失败，默认 release:', e);
+    }
+
+    // 3. 创建支付订单（后端生成签名）
     uni.hideLoading();
     uni.showLoading({ title: '生成订单中...', mask: true });
-    const orderResult = await createPaymentOrder({ childData, wxCode });
+    const orderResult = await createPaymentOrder({ childData, wxCode, envVersion });
     uni.hideLoading();
 
     // 3. 拉起微信虚拟支付
