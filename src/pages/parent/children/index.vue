@@ -14,6 +14,8 @@
       <button class="add-first-btn" @tap="goAdd" hover-class="btn-hover">
         + 添加第一个宝贝
       </button>
+      <text class="add-vip-hint">👑 第2个宝贝起 9.9元/个</text>
+    </view>
     </view>
 
     <!-- 宝贝列表 -->
@@ -67,8 +69,9 @@
       <!-- 添加按钮 -->
       <view class="add-section">
         <button class="add-btn" @tap="goAdd" hover-class="btn-hover">
-          + 添加宝贝
+          👑 + 添加宝贝
         </button>
+        <text class="add-vip-hint">第2个宝贝起 9.9元/个</text>
       </view>
     </template>
   </view>
@@ -365,6 +368,16 @@ function goDetail(id: string): void {
 // ===== 添加按钮区域 =====
 .add-section {
   padding: 32rpx 0 48rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.add-vip-hint {
+  font-size: 22rpx;
+  color: #FF6F00;
+  font-weight: 500;
 }
 
 .add-btn {

@@ -144,6 +144,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue';
 import { addChild, type AddChildParams } from '@/services/parent';
+import { createPaymentOrder, confirmPaymentOrder } from '@/services/payment';
 import { useChildStore } from '@/stores/child';
 import { api, BASE_URL } from '@/services/api';
 
@@ -301,20 +302,133 @@ async function uploadAvatar(): Promise<string> {
   });
 }
 
+/** 构建宝贝创建参数 */
+function buildChildParams(): AddChildParams {
+  const params: AddChildParams = {
+    nickname: form.nickname.trim(),
+  };
+  if (form.gender) params.gender = form.gender;
+  if (form.age !== undefined) params.age = form.age;
+  if (form.grade) params.grade = form.grade;
+  if (form.petId) params.petId = form.petId;
+  if (form.speciesId) (params as any).speciesId = form.speciesId;
+  return params;
+}
+
+/** 第2+个宝贝：走虚拟支付流程 */
+async function handlePaidSubmit(): Promise<void> {
+  uni.showLoading({ title: '拉起支付...', mask: true });
+
+  try {
+    // 1. 获取 wx.login code
+    const loginRes = await new Promise<{ code: string }>((resolve, reject) => {
+      uni.login({
+        provider: 'weixin',
+        success: (res) => resolve(res as unknown as { code: string }),
+        fail: (err) => reject(err),
+      });
+    });
+
+    const childData = buildChildParams() as Record<string, any>;
+    const wxCode = loginRes.code;
+
+    // 2. 创建支付订单（后端生成签名）
+    uni.hideLoading();
+    uni.showLoading({ title: '生成订单中...', mask: true });
+    const orderResult = await createPaymentOrder({ childData, wxCode });
+    uni.hideLoading();
+
+    // 3. 拉起微信虚拟支付
+    // 能力检测：低版本基础库不支持
+    // @ts-ignore
+    if (!wx.canIUse || !wx.canIUse('requestVirtualPayment')) {
+      uni.hideLoading();
+      uni.showToast({ title: '当前微信版本过低，请升级后再试', icon: 'none' });
+      isSubmitting.value = false;
+      return;
+    }
+    const payResult = await new Promise<{ errCode: number }>((resolve, reject) => {
+      // @ts-ignore wx.requestVirtualPayment 是微信小程序 API
+      wx.requestVirtualPayment({
+        signData: orderResult.signData,
+        mode: 'short_series_goods',
+        paySig: orderResult.paySig,
+        signature: orderResult.signature,
+        success: (res: any) => resolve(res),
+        fail: (err: any) => reject(err),
+      });
+    });
+
+    // 支付成功
+    uni.showLoading({ title: '支付成功，创建宝贝...', mask: true });
+    const confirmResult = await confirmPaymentOrder(orderResult.outTradeNo);
+
+    if (!confirmResult.success) {
+      throw new Error('确认订单失败');
+    }
+
+    // 刷新全局 childStore
+    store.loaded = false;
+    await store.fetchChildList();
+    if (confirmResult.child?.id) {
+      store.switchToChild(confirmResult.child.id);
+    }
+
+    uni.hideLoading();
+    uni.showToast({ title: '添加成功', icon: 'success', duration: 1500 });
+    setTimeout(() => {
+      isSubmitting.value = false;
+      uni.reLaunch({ url: '/pages/task/task' });
+    }, 1000);
+  } catch (e: any) {
+    uni.hideLoading();
+    isSubmitting.value = false;
+
+    // 处理支付错误码
+    if (e.errCode !== undefined || e.errMsg) {
+      const errCode = e.errCode || (e as any).errCode;
+      switch (errCode) {
+        case -1:
+          uni.showToast({ title: '支付失败，请重试', icon: 'none' });
+          break;
+        case -2:
+          uni.showToast({ title: '已取消支付', icon: 'none' });
+          break;
+        case -4:
+          uni.showToast({ title: '支付被拦截，请联系客服', icon: 'none' });
+          break;
+        case -15005:
+        case -15006:
+          console.error('[Payment] 签名错误:', e);
+          uni.showToast({ title: '支付系统异常，请联系客服', icon: 'none' });
+          break;
+        default:
+          uni.showToast({ title: '支付失败，请重试', icon: 'none' });
+      }
+    } else {
+      console.error('[AddChild] 支付/创建失败:', e);
+      uni.showToast({ title: '添加失败，请重试', icon: 'none' });
+    }
+  }
+}
+
 async function handleSubmit(): Promise<void> {
   if (!canSubmit.value || isSubmitting.value) return;
 
+  const childCount = store.childList.length;
+
+  // 第2+个宝贝：走虚拟支付流程
+  if (childCount >= 1) {
+    isSubmitting.value = true;
+    await handlePaidSubmit();
+    return;
+  }
+
+  // 第1个宝贝：免费创建
   isSubmitting.value = true;
   uni.showLoading({ title: '保存中...', mask: true });
   try {
-    const params: AddChildParams = {
-      nickname: form.nickname.trim(),
-    };
-    if (form.gender) params.gender = form.gender;
-    if (form.age !== undefined) params.age = form.age;
-    if (form.grade) params.grade = form.grade;
-    if (form.petId) params.petId = form.petId;
-    if (form.speciesId) (params as any).speciesId = form.speciesId;
+    const params = buildChildParams();
 
     const newChild = await addChild(params);
     // 刷新全局 childStore

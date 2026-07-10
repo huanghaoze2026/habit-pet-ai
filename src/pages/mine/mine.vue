@@ -52,7 +52,10 @@
             <view class="baby-avatar-wrap baby-avatar-add">
               <text class="baby-add-icon">+</text>
             </view>
-            <text class="baby-name baby-name--add">添加</text>
+            <view class="baby-add-info">
+              <text class="baby-name baby-name--add">添加</text>
+              <text class="baby-add-vip">👑 9.9</text>
+            </view>
           </view>
         </view>
       </scroll-view>
@@ -64,6 +67,7 @@
           <text>去添加宝贝</text>
           <text class="arrow">→</text>
         </view>
+        <text class="no-baby-hint">👑 第2个宝贝起 9.9元/个</text>
       </view>
     </view>
 
@@ -413,6 +417,22 @@ const handleLogout = () => {
   color: #333;
 }
 
+.baby-add-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.baby-add-vip {
+  font-size: 20rpx;
+  color: #FF6F00;
+  background: rgba(255, 111, 0, 0.1);
+  padding: 2rpx 8rpx;
+  border-radius: 8rpx;
+  font-weight: 600;
+}
+
 /* 无宝贝 */
 .no-baby-section {
   display: flex;
@@ -425,7 +445,13 @@ const handleLogout = () => {
 .no-baby-text {
   font-size: 28rpx;
   color: #333;
-  margin-bottom: 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.no-baby-hint {
+  font-size: 22rpx;
+  color: #FF6F00;
+  margin-top: 16rpx;
 }
 
 .no-baby-btn {

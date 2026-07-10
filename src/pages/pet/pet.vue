@@ -108,6 +108,7 @@
             <!-- P57: 底部按钮栏 - 💬/📞/🍖 水平对齐 -->
             <!-- P68: 通话中底部控制栏 -->
             <view v-if="isOnCall" class="call-bottom-bar">
+              <text class="ai-disclaimer-text ai-disclaimer-text--call">用AI生成，仅供参考，注意甄别</text>
               <!-- PTT 模式下的大按住说话按钮(挂断按钮上方) -->
               <view
                 v-if="!isFullDuplex"
@@ -134,15 +135,18 @@
                 </view>
               </view>
             </view>
-            <view v-else class="pet-bottom-bar">
-              <view class="pet-side-btn pet-side-btn--chat" @tap.stop="enterChat">
-                <text class="pet-side-icon">💬</text>
-              </view>
-              <view v-if="petEnergy > 0" class="pet-side-btn pet-side-btn--feed" @tap.stop="feedPet">
-                <text class="pet-side-icon">🍖</text>
-              </view>
-              <view class="pet-side-btn pet-side-btn--call" @tap.stop="startPhoneCall">
-                <text class="pet-side-icon">📞</text>
+            <view v-else class="pet-bottom-wrap">
+              <text class="ai-disclaimer-text">用AI生成，仅供参考，注意甄别</text>
+              <view class="pet-bottom-bar">
+                <view class="pet-side-btn pet-side-btn--chat" @tap.stop="enterChat">
+                  <text class="pet-side-icon">💬</text>
+                </view>
+                <view v-if="petEnergy > 0" class="pet-side-btn pet-side-btn--feed" @tap.stop="feedPet">
+                  <text class="pet-side-icon">🍖</text>
+                </view>
+                <view class="pet-side-btn pet-side-btn--call" @tap.stop="startPhoneCall">
+                  <text class="pet-side-icon">📞</text>
+                </view>
               </view>
             </view>
 
@@ -2157,15 +2161,34 @@ const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', 
 }
 
 /* P50: 底部按钮 - 大尺寸圆形按钮 */
-.pet-bottom-bar {
+.pet-bottom-wrap {
   position: absolute;
   bottom: 60rpx;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  z-index: 10;
+}
+.ai-disclaimer-text {
+  font-size: 22rpx;
+  color: rgba(120, 120, 120, 0.85);
+  text-align: center;
+  line-height: 1.4;
+}
+.ai-disclaimer-text--call {
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 12rpx;
+  display: block;
+}
+
+.pet-bottom-bar {
+  /* 定位属性已由父级 .pet-bottom-wrap 接管，按钮栏只用 flex 布局 */
+  display: flex;
   align-items: center;
   gap: 60rpx;
-  z-index: 10;
 }
 
 .pet-side-btn {
