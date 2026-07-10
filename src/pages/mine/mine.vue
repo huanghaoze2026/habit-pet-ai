@@ -54,7 +54,7 @@
             </view>
             <view class="baby-add-info">
               <text class="baby-name baby-name--add">添加</text>
-              <text class="baby-add-vip">👑 9.9</text>
+              <text v-if="store.childList.length > 1" class="baby-add-vip">👑 9.9</text>
             </view>
           </view>
         </view>
@@ -67,7 +67,7 @@
           <text>去添加宝贝</text>
           <text class="arrow">→</text>
         </view>
-        <text class="no-baby-hint">👑 第2个宝贝起 9.9元/个</text>
+        <text v-if="store.childList.length === 1" class="no-baby-hint">👑 第3个宝贝起 9.9元/个</text>
       </view>
     </view>
 

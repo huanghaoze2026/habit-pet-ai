@@ -135,7 +135,7 @@
         @tap="handleSubmit"
         hover-class="btn-hover"
       >
-        {{ isSubmitting ? '添加中...' : '完成添加' }}
+        {{ isSubmitting ? '添加中...' : '确认支付并添加' }}
       </button>
     </view>
   </view>
@@ -315,7 +315,7 @@ function buildChildParams(): AddChildParams {
   return params;
 }
 
-/** 第2+个宝贝：走虚拟支付流程 */
+/** 第3+个宝贝（已有2个以上）：走虚拟支付流程 */
 async function handlePaidSubmit(): Promise<void> {
   uni.showLoading({ title: '拉起支付...', mask: true });
 
@@ -387,6 +387,8 @@ async function handlePaidSubmit(): Promise<void> {
     // 处理支付错误码
     if (e.errCode !== undefined || e.errMsg) {
       const errCode = e.errCode || (e as any).errCode;
+      const errMsg = e.errMsg || (e as any).errMsg;
+      console.error('[Payment] 失败: errCode=', errCode, 'errMsg=', errMsg, '完整=', JSON.stringify(e));
       switch (errCode) {
         case -1:
           uni.showToast({ title: '支付失败，请重试', icon: 'none' });
@@ -417,8 +419,8 @@ async function handleSubmit(): Promise<void> {
 
   const childCount = store.childList.length;
 
-  // 第2+个宝贝：走虚拟支付流程
-  if (childCount >= 1) {
+  // 第3+个宝贝（已有2个以上）：走虚拟支付流程
+  if (childCount > 1) {
     isSubmitting.value = true;
     await handlePaidSubmit();
     return;
