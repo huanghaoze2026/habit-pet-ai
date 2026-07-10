@@ -9,55 +9,9 @@ export function createApp() {
   return { app, pinia };
 }
 
-// ============ 路由守卫 ============
-// 未登录时所有页面拦截跳转登录
-
-// 白名单：无需登录即可访问的页面
-const whiteList: string[] = ['pages/login/login'];
-
-// 路由拦截器
-uni.addInterceptor('navigateTo', {
-  invoke(args) {
-    // 检查登录状态
-    const token = uni.getStorageSync('habitpet_token');
-    const targetPage = (args as { url: string }).url.split('?')[0];
-
-    // 白名单页面放行
-    if (whiteList.some((page) => targetPage.includes(page))) {
-      return true;
-    }
-
-    // 未登录 → 跳转登录页
-    if (!token) {
-      uni.reLaunch({ url: '/pages/login/login' });
-      return false;
-    }
-
-    return true;
-  },
-});
-
-uni.addInterceptor('switchTab', {
-  invoke(args) {
-    const token = uni.getStorageSync('habitpet_token');
-    const targetPage = (args as { url: string }).url.split('?')[0];
-
-    if (whiteList.some((page) => targetPage.includes(page))) {
-      return true;
-    }
-
-    if (!token) {
-      uni.reLaunch({ url: '/pages/login/login' });
-      return false;
-    }
-
-    return true;
-  },
-});
-
-uni.addInterceptor('reLaunch', {
-  invoke(args) {
-    // reLaunch 本身用于全局跳转（如退出登录），不做拦截
-    return true;
-  },
-});
+// ============ 路由守卫（已移除）============
+// 审核整改·游客模式：不再做全局强制登录拦截。
+// 打开小程序默认游客可浏览（任务/宠物圈/我的），
+// 需要账号的操作由各页面 ensureLoginThen 按需主动跳登录页。
+// 之前遗留的 navigateTo/switchTab 拦截器会在无 token 时把游客 reLaunch 到登录页，
+// 导致「打开即登录页」、审核被拒，故整体删除。

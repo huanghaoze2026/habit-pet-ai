@@ -89,6 +89,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { wxLogin, updateProfile } from '@/services/auth'
 import { api } from '@/services/api'
 import { useUserStore } from '@/stores/user'
+import { useChildStore } from '@/stores/child'
 import { tryAcceptPendingInvite, savePendingInviter } from '@/utils/invite'
 import PrivacyContent from '@/components/PrivacyContent.vue'
 import TermsContent from '@/components/TermsContent.vue'
@@ -124,8 +125,20 @@ async function goAfterLogin() {
     uni.switchTab({ url: '/pages/pet-circle/index' })
     return
   }
-  // 无邀请:回到任务页(游客/登录态共用的首页)
-  uni.switchTab({ url: '/pages/task/task' })
+  // 无邀请:按宝贝数据判断去向
+  const childStore = useChildStore()
+  try {
+    await childStore.fetchChildList()
+  } catch (e) {
+    console.warn('[Login] 获取宝贝列表失败(忽略):', e)
+  }
+  if (childStore.hasChildren) {
+    // 已有宝贝 → 进入任务列表
+    uni.switchTab({ url: '/pages/task/task' })
+  } else {
+    // 无宝贝 → 进入添加宝贝页（reLaunch 清空登录页页面栈）
+    uni.reLaunch({ url: '/pages/parent/children/add' })
+  }
 }
 
 // 微信一键登录（点击按钮 → 检查协议 → 用 tap 手势直调 getUserProfile 自动填头像昵称 → wxLogin 换 token）
