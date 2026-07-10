@@ -16,7 +16,6 @@
       </button>
       <text class="add-vip-hint">👑 第2个宝贝起 9.9元/个</text>
     </view>
-    </view>
 
     <!-- 宝贝列表 -->
     <template v-else>
