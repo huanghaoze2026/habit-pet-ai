@@ -92,22 +92,30 @@
     <view class="form-card">
       <view class="card-header">
         <text class="card-title">🐉 选择宠物</text>
-        <text class="card-hint">（共{{ speciesList.length }}种可选）</text>
+        <text v-if="speciesLoading" class="card-hint">（加载中...）</text>
+        <text v-else-if="speciesLoadFailed" class="card-hint species-hint-error">（加载失败）</text>
+        <text v-else class="card-hint">（共{{ speciesList.length }}种可选）</text>
       </view>
       <picker
         :value="speciesIndex"
         :range="speciesNames"
+        :disabled="speciesList.length === 0"
         @change="onSpeciesChange"
       >
-        <view class="picker-box" :class="{ placeholder: !form.speciesId }">
+        <view class="picker-box" :class="{ placeholder: !form.speciesId }" @tap="retryLoadSpecies">
           <view class="species-main-row">
-            <text>{{ selectedSpecies?.name || '请选择宠物（选填）' }}</text>
-            <text v-if="selectedSpecies" class="species-desc">{{ selectedSpecies.desc }}</text>
+            <text v-if="speciesLoading">宠物列表加载中...</text>
+            <text v-else-if="speciesLoadFailed">宠物列表加载失败，点击重试</text>
+            <text v-else>{{ selectedSpecies?.name || '请选择宠物（选填）' }}</text>
+            <text v-if="selectedSpecies && !speciesLoadFailed" class="species-desc">{{ selectedSpecies.desc }}</text>
           </view>
           <text v-if="selectedSpecies?.comingSoon" class="species-coming-tag">待上线</text>
           <text class="picker-arrow">›</text>
         </view>
       </picker>
+      <view v-if="speciesLoadFailed" class="species-retry-btn" @tap="retryLoadSpecies">
+        <text>↻ 重新加载宠物列表</text>
+      </view>
       <view v-if="form.speciesId" class="species-view-row">
         <view class="species-view-btn" @tap="goStagesPreview">
           <text>👁 查看形态</text>
@@ -135,7 +143,7 @@
         @tap="handleSubmit"
         hover-class="btn-hover"
       >
-        {{ isSubmitting ? '添加中...' : '确认支付并添加' }}
+        {{ submitBtnText }}
       </button>
     </view>
   </view>
@@ -143,13 +151,25 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import { addChild, type AddChildParams } from '@/services/parent';
 import { createPaymentOrder, confirmPaymentOrder } from '@/services/payment';
 import { useChildStore } from '@/stores/child';
+import { useUserStore } from '@/stores/user';
 import { api, BASE_URL } from '@/services/api';
 
 const store = useChildStore();
+const userStore = useUserStore();
 const isSubmitting = ref(false);
+
+// 需要登录才能使用的页面（审核整改·游客模式）：未登录直接回登录页，
+// 避免游客态下请求 401 导致“选择宠物”下拉数据为空。
+onShow(() => {
+  if (!userStore.isLoggedIn) {
+    uni.showToast({ title: '请先登录', icon: 'none' });
+    setTimeout(() => uni.reLaunch({ url: '/pages/login/login' }), 600);
+  }
+});
 
 // 宠物物种列表
 interface PetSpecies { id: string; name: string; desc: string; category: string; comingSoon?: boolean }
@@ -158,9 +178,45 @@ const speciesNames = computed(() => speciesList.value.map(s => s.comingSoon ? s.
 const speciesIndex = ref(-1)
 const selectedSpecies = computed(() => speciesIndex.value >= 0 ? speciesList.value[speciesIndex.value] : null)
 
+// 宠物物种加载状态：失败不再静默吞掉，提供自动重试 + 手动重试，
+// 避免接口异常（后端重启/网络抖动）时下拉框无内容且无任何提示。
+const speciesLoading = ref(false)
+const speciesLoadFailed = ref(false)
+let speciesRetryCount = 0
+const MAX_SPECIES_RETRY = 2
+
 async function loadSpecies() {
-  try { const r = await api.get<{ species: PetSpecies[] }>('/parent/pet-species'); speciesList.value = r.data?.species || [] } catch {}
+  if (speciesLoading.value) return
+  speciesLoading.value = true
+  speciesLoadFailed.value = false
+  try {
+    const r = await api.get<{ species: PetSpecies[] }>('/parent/pet-species')
+    speciesList.value = r.data?.species || []
+    speciesRetryCount = 0
+    if (speciesList.value.length === 0) {
+      console.warn('[AddChild] pet-species 接口返回空列表')
+    }
+  } catch (e) {
+    console.error('[AddChild] 加载宠物物种列表失败:', e)
+    speciesLoadFailed.value = true
+    // 瞬时故障自动重试（最多 2 次，间隔 1.5s）
+    if (speciesRetryCount < MAX_SPECIES_RETRY) {
+      speciesRetryCount++
+      setTimeout(() => {
+        if (!speciesList.value.length) loadSpecies()
+      }, 1500)
+    }
+  } finally {
+    speciesLoading.value = false
+  }
 }
+
+function retryLoadSpecies() {
+  if (speciesLoading.value) return
+  speciesRetryCount = 0
+  loadSpecies()
+}
+
 loadSpecies()
 
 function goStagesPreview() {
@@ -225,6 +281,13 @@ function onGradeChange(e: { detail: { value: number } }): void {
 
 const canSubmit = computed(() => {
   return form.nickname.trim().length > 0 && !isSubmitting.value;
+});
+
+/** 提交按钮文案：第1个免费，第2个起需支付 */
+const submitBtnText = computed(() => {
+  if (isSubmitting.value) return '添加中...';
+  if (store.childList.length === 0) return '确认添加';
+  return '确认支付并添加';
 });
 
 function skipWatch(): void {
@@ -315,7 +378,7 @@ function buildChildParams(): AddChildParams {
   return params;
 }
 
-/** 第3+个宝贝（已有2个以上）：走虚拟支付流程 */
+/** 第2+个宝贝（已有1个以上）：走虚拟支付流程 */
 async function handlePaidSubmit(): Promise<void> {
   uni.showLoading({ title: '拉起支付...', mask: true });
 
@@ -429,14 +492,14 @@ async function handleSubmit(): Promise<void> {
 
   const childCount = store.childList.length;
 
-  // 第3+个宝贝（已有2个以上）：走虚拟支付流程
-  if (childCount > 1) {
+  // 第2+个宝贝（已有1个以上）：走虚拟支付流程
+  if (childCount >= 1) {
     isSubmitting.value = true;
     await handlePaidSubmit();
     return;
   }
 
-  // 第1个宝贝：免费创建
+  // 仅第1个宝贝免费创建
   isSubmitting.value = true;
   uni.showLoading({ title: '保存中...', mask: true });
   try {
@@ -498,6 +561,27 @@ async function handleSubmit(): Promise<void> {
 .card-hint {
   font-size: 22rpx;
   color: #333;
+}
+
+.species-hint-error {
+  color: #e57373;
+}
+
+.species-retry-btn {
+  margin-top: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14rpx 0;
+  background: #fdf3f3;
+  border-radius: 12rpx;
+  border: 1rpx solid #f0c8c8;
+}
+
+.species-retry-btn text {
+  font-size: 26rpx;
+  color: #e57373;
+  font-weight: 500;
 }
 
 .form-item {
