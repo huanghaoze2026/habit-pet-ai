@@ -365,8 +365,8 @@ async function uploadAvatar(): Promise<string> {
   });
 }
 
-/** 构建宝贝创建参数 */
-function buildChildParams(): AddChildParams {
+/** 构建宝贝创建参数（avatar 由调用方先上传后注入） */
+function buildChildParams(avatarPath?: string): AddChildParams {
   const params: AddChildParams = {
     nickname: form.nickname.trim(),
   };
@@ -375,7 +375,23 @@ function buildChildParams(): AddChildParams {
   if (form.grade) params.grade = form.grade;
   if (form.petId) params.petId = form.petId;
   if (form.speciesId) (params as any).speciesId = form.speciesId;
+  if (avatarPath) params.avatar = avatarPath;
   return params;
+}
+
+/**
+ * 提交前上传头像（若已选择）。失败不阻断创建，仅记录日志；
+ * 避免「选择头像后提交却丢失头像」的静默问题。
+ */
+async function uploadAvatarIfAny(): Promise<string> {
+  if (!avatarUrl.value) return '';
+  try {
+    return await uploadAvatar();
+  } catch (e) {
+    console.error('[AddChild] 头像上传失败（继续创建，不带头像）:', e);
+    uni.showToast({ title: '头像上传失败，将不带头像保存', icon: 'none' });
+    return '';
+  }
 }
 
 /** 第2+个宝贝（已有1个以上）：走虚拟支付流程 */
@@ -392,7 +408,8 @@ async function handlePaidSubmit(): Promise<void> {
       });
     });
 
-    const childData = buildChildParams() as Record<string, any>;
+    const avatarPath = await uploadAvatarIfAny();
+    const childData = buildChildParams(avatarPath) as Record<string, any>;
     const wxCode = loginRes.code;
 
     // 2. 获取小程序运行版本(develop=开发版/开发者工具, trial=体验版, release=正式版)
@@ -503,7 +520,8 @@ async function handleSubmit(): Promise<void> {
   isSubmitting.value = true;
   uni.showLoading({ title: '保存中...', mask: true });
   try {
-    const params = buildChildParams();
+    const avatarPath = await uploadAvatarIfAny();
+    const params = buildChildParams(avatarPath);
 
     const newChild = await addChild(params);
     // 刷新全局 childStore

@@ -224,7 +224,8 @@
     </view>
   </view>
   <view v-else class="loading">
-    <text>加载中...</text>
+    <text v-if="loadFailed" class="loading-retry" @click="retryLoad">加载失败，点击重试</text>
+    <text v-else>加载中...</text>
   </view>
 </template>
 
@@ -301,6 +302,7 @@ const child = ref<ChildDetail['childInfo'] | null>(null)
 const petDetail = ref<ChildDetail['petStatus'] | null>(null)
 const aiStats = ref<ChildDetail['aiStats'] | null>(null)
 const taskGroups = ref<TaskGroupItem[]>([])
+const loadFailed = ref(false)
 
 // 自定义删除弹窗
 const showDeleteModal = ref(false)
@@ -382,16 +384,32 @@ const loadTaskStats = async (childId: string) => {
   try {
     const res = await api.get<{ totalTasks: number; completedTasks: number; completionRate: number }>('/task/stats', { childId })
     taskStatsDirect.value = res.data
-  } catch { taskStatsDirect.value = null }
+  } catch (e) {
+    console.error('[Detail] task/stats error:', e)
+    taskStatsDirect.value = null
+  }
 }
 
 const fetchDetail = async (childId: string) => {
+  loadFailed.value = false
   try {
     const res = await api.get<ChildDetail>(`/parent/children/${childId}`)
     child.value = res.data?.childInfo || null
     petDetail.value = res.data?.petStatus || null
     aiStats.value = (res.data as any)?.aiStats || null
-  } catch { /* ignore */ }
+  } catch (e) {
+    console.error('[Detail] fetchDetail error:', e)
+    loadFailed.value = true
+    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+  }
+}
+
+const retryLoad = () => {
+  const cid = currentChildId.value
+  if (!cid) return
+  fetchDetail(cid)
+  fetchTaskHistory(cid)
+  loadTaskStats(cid)
 }
 
 const fetchTaskHistory = async (childId: string, reloadDays?: number) => {
@@ -415,7 +433,8 @@ const toggleGroup = (idx: number) => {
 }
 
 const goPet = () => uni.navigateTo({ url: '/pages/pet/pet' })
-const goSelectPet = () => uni.navigateTo({ url: '/pages/pet/select' })
+// /pages/pet/select 页面不存在，改用提示（宠物选择功能暂未开放，入口在添加宝贝流程中）
+const goSelectPet = () => uni.showToast({ title: '宠物选择功能开发中', icon: 'none' })
 const goViewStages = () => {
   const speciesId = petDetail.value?.speciesId
   if (speciesId) uni.navigateTo({ url: '/pages/parent/children/pet-stages-preview?speciesId=' + speciesId })
@@ -463,7 +482,8 @@ const executeDeleteTask = async () => {
     await api.del(url)
     uni.showToast({ title: '已删除', icon: 'success' })
     fetchTaskHistory(currentChildId.value)
-  } catch {
+  } catch (e) {
+    console.error('[Detail] 删除任务失败:', e)
     uni.showToast({ title: '删除失败', icon: 'none' })
   }
   deleteTarget.value = null
@@ -494,7 +514,7 @@ const confirmDeleteChild = () => {
               uni.navigateBack()
             }
           }, 800)
-        } catch { uni.showToast({ title: '删除失败', icon: 'none' }) }
+        } catch (e) { console.error('[Detail] 删除宝贝失败:', e); uni.showToast({ title: '删除失败', icon: 'none' }) }
       }
     },
   })

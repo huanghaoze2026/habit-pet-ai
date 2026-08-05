@@ -256,6 +256,7 @@ onMounted(async () => {
     }
   } catch (e) {
     console.error('[EditPage] 加载失败:', e);
+    uni.showToast({ title: '加载失败，请重试', icon: 'none' });
   }
   isLoading.value = false;
 });

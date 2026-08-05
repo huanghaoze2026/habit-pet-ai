@@ -185,7 +185,7 @@ const handleComplete = async () => {
       // P59: 保存到本地持久路径
       const fs = uni.getFileSystemManager()
       const savedPath = `${wx.env.USER_DATA_PATH}/checkin_photo_${Date.now()}.jpg`
-      try { await new Promise<void>((resolve, reject) => { fs.saveFile({ tempFilePath: tempPath, filePath: savedPath, success: () => resolve(), fail: reject }) }) } catch {}
+      try { await new Promise<void>((resolve, reject) => { fs.saveFile({ tempFilePath: tempPath, filePath: savedPath, success: () => resolve(), fail: reject }) }) } catch (e) { console.error('[Detail] 照片保存到本地失败，可能无法打卡:', e) }
       const params = [
         `taskId=${task.value.id}`,
         `childId=${store.currentChildId || ''}`,

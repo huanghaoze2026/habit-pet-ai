@@ -161,7 +161,10 @@ const loadStats = async () => {
     const res = await api.get<{ totalTasks: number; completedTasks: number; completionRate: number }>('/task/stats', { childId: cid })
     taskStats.value = res.data
     console.log('[Task] Stats loaded:', res.data)
-  } catch { taskStats.value = null }
+  } catch (e) {
+    console.error('[Task] 统计加载失败:', e)
+    taskStats.value = null
+  }
 }
 
 // P54: 任务完成粒子动画
@@ -232,7 +235,8 @@ async function loadPetInfo(childId: string) {
       petSpriteUrl.value = ''
       petSpriteError.value = true
     }
-  } catch {
+  } catch (e) {
+    console.error('[task] loadPetInfo 失败:', e)
     petName.value = ''; petEmoji.value = '🐾'; petSpriteUrl.value = ''; petSpriteError.value = true
   }
 }
@@ -329,7 +333,7 @@ function triggerPetGlow(encouragement?: string) {
         const a = uni.createInnerAudioContext({ useWebAudioImplement: true })
         a.obeyMuteSwitch = false; a.src = url; a.play()
       }
-    }).catch(()=>{})
+    }).catch((e:any) => { console.error('[Task] TTS 请求失败:', e) })
   }
 }
 
@@ -395,7 +399,12 @@ const fetchTasksForChild = async (childId: string) => {
     const res = await api.get<{items?:Task[]}>('/task/list', { childId })
     const data = (res.data as any)?.items || res.data || []
     childTasks[childId] = (Array.isArray(data) ? data : []).map((t: any) => ({ ...t, name: t.title || t.name }))
-  } catch { childTasks[childId] = [] }
+  } catch (e) {
+    console.error('[Task] 任务列表加载失败:', e)
+    childTasks[childId] = []
+    // 已有内容时不打扰；首次加载失败给出可见提示，避免误以为是「没有任务」
+    uni.showToast({ title: '任务加载失败，请下拉重试', icon: 'none' })
+  }
 }
 
 const goMine = () => uni.navigateTo({ url: '/pages/mine/mine' })
@@ -430,7 +439,7 @@ const completeTask = async (task: Task) => {
       // P59: 保存到本地持久路径，避免跨页导航后临时文件被微信清理
       const fs = uni.getFileSystemManager()
       const savedPath = `${wx.env.USER_DATA_PATH}/checkin_photo_${Date.now()}.jpg`
-      try { await new Promise<void>((resolve, reject) => { fs.saveFile({ tempFilePath: tempPath, filePath: savedPath, success: () => resolve(), fail: reject }) }) } catch {}
+      try { await new Promise<void>((resolve, reject) => { fs.saveFile({ tempFilePath: tempPath, filePath: savedPath, success: () => resolve(), fail: reject }) }) } catch (e) { console.error('[Task] 照片保存到本地失败，可能无法打卡:', e) }
       const child = store.childList[store.currentIndex]
       const p = [`taskId=${task.id}`,`childId=${childId}`,`photoPath=${encodeURIComponent(savedPath)}`,`taskName=${encodeURIComponent(task.name||task.title||'')}`,`energy=${task.energy||0}`,`childName=${encodeURIComponent(child?.nickname||'')}`].join('&')
       uni.navigateTo({ url: `/pages/task/checkin?${p}` })

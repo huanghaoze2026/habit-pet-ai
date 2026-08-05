@@ -263,7 +263,8 @@ async function submitProfile() {
       }
     }
     await goAfterLogin()
-  } catch {
+  } catch (e) {
+    console.error('[Login] 保存资料失败:', e)
     uni.showToast({ title: '保存失败,请重试', icon: 'none' })
   } finally {
     profileSubmitting.value = false

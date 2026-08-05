@@ -727,7 +727,8 @@ const loadPetAndHistory = async (childId: string) => {
           ]
         }
         setTimeout(() => scrollToBottom(childId), 300)
-      } catch {
+      } catch (e) {
+        console.error('[Pet] 对话历史加载失败:', e)
         if (!chatCache[childId] || chatCache[childId].length === 0) {
           chatCache[childId] = [
             { role: 'pet', content: '嗷呜!你终于来啦,想和我聊点什么?😊' },
@@ -735,7 +736,8 @@ const loadPetAndHistory = async (childId: string) => {
         }
       }
     }
-  } catch {
+  } catch (e) {
+    console.error('[Pet] 宠物/历史加载失败:', e)
     petsByChild[childId] = null
     Object.assign(currentPet, createDefaultPet())
   }
@@ -749,7 +751,8 @@ const loadGreeting = async (childId: string) => {
     greetingText.value = res.data?.greeting || ''
     if (res.data?.mood !== undefined) currentPet.mood = res.data.mood
     if (res.data?.isFirstTime) isFirstMeeting.value = true
-  } catch {
+  } catch (e) {
+    console.error('[Pet] 问候加载失败:', e)
     greetingText.value = ''
   }
   // P57: 无后端问候时,按 stage 和进化状态补本地文案
@@ -1029,6 +1032,28 @@ function connectWebSocket(token: string, childId: string) {
         uni.showToast({ title: '已切换到按住说话模式', icon: 'none' })
         break
       case 'call_ended':
+        // P73: call_ended 也需要完整清理(后端重连耗尽/超时触发),
+        // 否则 isOnCall 保持 true → onClose 触发前端自动重连 → 死循环
+        isOnCall.value = false
+        callStatus.value = 'idle'
+        stopMicrophone()
+        stopAllTTS()
+        stopAllAudio()
+        pcmBufferQueue.length = 0
+        isPlayingPcm = false
+        reconnectAttempts = MAX_RECONNECT + 1
+        stopWsPing()
+        pttIntentionalClose = true // 防止 onClose 自动重连
+        callPetText.value = data.message || ''
+        // 显示结束消息
+        if (data.message) {
+          uni.showToast({ title: data.message, icon: 'none', duration: 2500 })
+        }
+        // 延迟关闭连接
+        setTimeout(() => {
+          try { wsConnection?.close({ code: 1000 }) } catch {}
+          wsConnection = null
+        }, 300)
         break
     }
   })

@@ -118,7 +118,7 @@ export const useChildStore = defineStore('child', () => {
   function saveCurrentChild(): void {
     try {
       uni.setStorageSync('current_child_id', currentChildId.value || '');
-    } catch { /* ignore */ }
+    } catch (e) { console.error('[ChildStore] 保存当前宝贝失败:', e); }
   }
 
   /**
@@ -142,7 +142,7 @@ export const useChildStore = defineStore('child', () => {
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('[ChildStore] 本地缓存读取失败:', e); }
   }
 
   /**

@@ -374,6 +374,14 @@ const submitting = ref(false)
 const showTemplatePopup = ref(false)
 
 onLoad(async () => {
+  // 登录守卫：游客直接访问创建任务页时引导登录（与 add.vue 一致）
+  const { useUserStore } = await import('@/stores/user')
+  const userStore = useUserStore()
+  if (!userStore.isLoggedIn) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    setTimeout(() => uni.reLaunch({ url: '/pages/login/login' }), 600)
+    return
+  }
   if (!store.currentChildId) {
     await store.fetchChildList()
   }
@@ -414,7 +422,9 @@ const onParentReviewToggle = async (e: any) => {
         needParentReview.value = true
         return
       }
-    } catch {}
+    } catch (e) {
+      console.error('[Create] 检查家长审核配置失败:', e)
+    }
     // 未设置密码，弹出设置弹窗
     parentPwd.value = { password: '', confirmPassword: '', question: '', answer: '' }
     showParentPwdPopup.value = true
@@ -448,6 +458,7 @@ const submitParentPwd = async () => {
       uni.showToast({ title: (res as any).message || '设置失败', icon: 'none' })
     }
   } catch (e: any) {
+    console.error('[Create] 设置家长密码失败:', e)
     uni.showToast({ title: e?.message || '设置失败', icon: 'none' })
   } finally {
     parentPwdLoading.value = false
@@ -509,6 +520,7 @@ const handleSubmit = async () => {
       uni.showToast({ title: (res as any).message || '创建失败', icon: 'none' })
     }
   } catch (e: any) {
+    console.error('[Create] 创建任务失败:', e)
     uni.showToast({ title: e?.message || '创建失败，请重试', icon: 'none' })
   } finally {
     submitting.value = false

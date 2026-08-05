@@ -28,7 +28,6 @@ export const copy = {
     noChild: '还没有宝贝，去添加吧',
     noPet: '正在孵化中…',
     menu: {
-      member: '会员订阅',
       settings: '设置',
       feedback: '意见反馈',
       about: '关于我们',

@@ -54,7 +54,7 @@
             </view>
             <view class="baby-add-info">
               <text class="baby-name baby-name--add">添加</text>
-              <text v-if="store.childList.length > 1" class="baby-add-vip">👑 9.9</text>
+              <text v-if="store.childList.length >= 1" class="baby-add-vip">👑 9.9</text>
             </view>
           </view>
         </view>
@@ -67,7 +67,7 @@
           <text>去添加宝贝</text>
           <text class="arrow">→</text>
         </view>
-        <text v-if="store.childList.length === 1" class="no-baby-hint">👑 第3个宝贝起 9.9元/个</text>
+
       </view>
     </view>
 
@@ -94,15 +94,6 @@
         <text class="menu-arrow">›</text>
       </view>
       <view class="menu-divider" />
-      <!-- 审核整改：虚拟支付未接入官方能力，先隐藏购买入口，后续接入官方虚拟支付后放开
-      <view class="menu-item" @click="goPricing">
-        <view class="menu-left">
-          <text class="menu-text">购买对话能量</text>
-        </view>
-        <text class="menu-arrow">›</text>
-      </view>
-      <view class="menu-divider" />
-      -->
       <view class="menu-item" @click="goSettings">
         <view class="menu-left">
           <text class="menu-text">设置</text>
@@ -211,10 +202,6 @@ const goSettings = () => {
   uni.navigateTo({ url: '/pages/mine/settings/index' })
 }
 
-const goPricing = () => {
-  uni.navigateTo({ url: '/pages/mine/pricing/index' })
-}
-
 const goFriends = () => {
   uni.navigateTo({ url: '/pages/mine/friends/index' })
 }
@@ -242,7 +229,6 @@ const handleMenu = (key: string) => {
     return
   }
   const toasts: Record<string, string> = {
-    member: '购买对话能量',
   }
   uni.showToast({ title: toasts[key] || '开发中', icon: 'none' })
 }

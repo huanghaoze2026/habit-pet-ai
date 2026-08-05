@@ -67,9 +67,9 @@
       <!-- 添加按钮 -->
       <view class="add-section">
         <button class="add-btn" @tap="goAdd" hover-class="btn-hover">
-          {{ children.length > 1 ? '👑 + 添加宝贝' : '+ 添加宝贝' }}
+          {{ children.length >= 1 ? '👑 + 添加宝贝' : '+ 添加宝贝' }}
         </button>
-        <text v-if="children.length > 1" class="add-vip-hint">第3个宝贝起 9.9元/个</text>
+        <text v-if="children.length >= 1" class="add-vip-hint">第2个宝贝起 9.9元/个</text>
       </view>
     </template>
   </view>

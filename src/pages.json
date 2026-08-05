@@ -150,14 +150,6 @@
       }
     },
     {
-      "path": "pages/mine/pricing/index",
-      "style": {
-        "navigationBarTitleText": "购买对话能量",
-        "navigationBarBackgroundColor": "#F5F0FF",
-        "navigationBarTextStyle": "black"
-      }
-    },
-    {
       "path": "pages/mine/settings/index",
       "style": {
         "navigationBarTitleText": "设置",

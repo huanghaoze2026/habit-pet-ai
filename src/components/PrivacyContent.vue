@@ -25,7 +25,7 @@
 
     <text class="h2">六、未成年人隐私保护</text>
     <view class="highlight-box">
-      <text>本小程序主要面向8至16岁未成年人用户。我们承诺：\n• 未成年人需在监护人同意下使用\n• 仅收集功能必要的最少信息\n• 不开放陌生人社交\n• 不推送不良内容\n• 家长拥有数据查看与管理权限\n• 监护人可随时要求删除未成年人数据或注销账号</text>
+      <text class="highlight-text">本小程序主要面向8至16岁未成年人用户。我们承诺：\n• 未成年人需在监护人同意下使用\n• 仅收集功能必要的最少信息\n• 不开放陌生人社交\n• 不推送不良内容\n• 家长拥有数据查看与管理权限\n• 监护人可随时要求删除未成年人数据或注销账号</text>
     </view>
 
     <text class="h2">七、用户权利</text>
@@ -59,7 +59,7 @@
 .p { font-size:28rpx; color:#444; display:block; margin-bottom:16rpx; white-space:pre-line; }
 .bold { font-weight:bold; }
 .highlight-box { background:#FFF3E0; border-left:8rpx solid #FF9800; padding:20rpx 24rpx; border-radius:8rpx; margin:8rpx 0 16rpx; }
-.highlight-box text { font-size:26rpx; color:#E65100; white-space:pre-line; }
+.highlight-box .highlight-text { font-size:26rpx; color:#E65100; white-space:pre-line; }
 .contact-box { background:#fff; border-radius:12rpx; padding:20rpx; margin-top:8rpx; }
 .contact-box .p { margin-bottom:8rpx; }
 .footer-text { display:block; text-align:center; font-size:22rpx; color:#999; margin-top:60rpx; }

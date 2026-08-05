@@ -4,7 +4,7 @@
     <text class="date">更新日期：2026年6月18日\n生效日期：2026年6月18日</text>
 
     <view class="welcome-box">
-      <text>欢迎使用「好习惯养宠」微信小程序（以下简称"本小程序"）。\n\n本《用户协议》（以下简称"本协议"）是您与运营方之间关于您使用本小程序及相关服务所订立的协议。\n\n请您在注册、登录、使用前认真阅读本协议全部内容。当您点击"同意"或开始使用，即表示已阅读、理解并接受本协议全部内容。</text>
+      <text class="welcome-text">欢迎使用「好习惯养宠」微信小程序（以下简称"本小程序"）。\n\n本《用户协议》（以下简称"本协议"）是您与运营方之间关于您使用本小程序及相关服务所订立的协议。\n\n请您在注册、登录、使用前认真阅读本协议全部内容。当您点击"同意"或开始使用，即表示已阅读、理解并接受本协议全部内容。</text>
     </view>
 
     <text class="h2">一、产品说明</text>
@@ -63,7 +63,7 @@
 .p { font-size:28rpx; color:#444; display:block; margin-bottom:16rpx; white-space:pre-line; }
 .bold { font-weight:bold; }
 .welcome-box { background:linear-gradient(135deg, rgba(91,62,150,0.15), rgba(255,142,158,0.15)); border-radius:16rpx; padding:24rpx; margin-bottom:20rpx; }
-.welcome-box text { font-size:26rpx; color:#5B3E96; white-space:pre-line; }
+.welcome-box .welcome-text { font-size:26rpx; color:#5B3E96; white-space:pre-line; }
 .contact-box { background:#fff; border-radius:12rpx; padding:20rpx; margin-top:8rpx; }
 .contact-box .p { margin-bottom:8rpx; }
 .footer-text { display:block; text-align:center; font-size:22rpx; color:#999; margin-top:60rpx; }
